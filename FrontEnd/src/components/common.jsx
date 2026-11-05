@@ -46,11 +46,11 @@ export function AppBar({ title, right, icon = 'back', onBack, children }) {
   );
 }
 
-/** 하단 탭 (책상 · 책장 · 마이페이지) */
-export function TabBar({ active = 'desk' }) {
+/** 하단 탭 (홈 · 소셜 다이어리 · 마이페이지) */
+export function TabBar({ active = 'home' }) {
   const tabs = [
-    { id: 'desk', label: '책상', icon: assets.iconDesk, to: '/' },
-    { id: 'shelf', label: '책장', icon: assets.iconBooks, to: '/shelf' },
+    { id: 'home', label: '홈', icon: assets.iconDesk, to: '/' },
+    { id: 'social', label: '소셜 다이어리', icon: assets.iconBooks, to: '/social' },
     { id: 'me', label: '마이페이지', icon: assets.iconUser, to: '/me' },
   ];
   return (
@@ -72,7 +72,7 @@ export function TabBar({ active = 'desk' }) {
   );
 }
 
-const STEPS = ['사진', '확인', '대화', '설정'];
+const STEPS = ['사진', '정보', '대화', '미리보기'];
 
 /** 일기 생성 4단계 진행 표시 */
 export function Progress({ step }) {

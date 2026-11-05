@@ -6,11 +6,15 @@ import './styles/base.css';
 import './styles/objects.css';
 import './styles/pages.css';
 import './styles/extra.css';
+import './v3/v3.css';
+import { AppProvider } from './v3/store.jsx';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
-      <App />
+      <AppProvider>
+        <App />
+      </AppProvider>
     </BrowserRouter>
   </StrictMode>,
 );

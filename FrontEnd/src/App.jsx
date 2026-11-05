@@ -1,63 +1,75 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import ComingSoon from './pages/ComingSoon.jsx';
-import Consent from './pages/Consent.jsx';
-import Home from './pages/Home.jsx';
-import MyDiary from './pages/MyDiary.jsx';
-import NewChat from './pages/NewChat.jsx';
-import NewConfirm from './pages/NewConfirm.jsx';
-import NewPhotos from './pages/NewPhotos.jsx';
-import Onboarding from './pages/Onboarding.jsx';
-import Today from './pages/Today.jsx';
-import BookOpen from './pages/BookOpen.jsx';
-import District from './pages/District.jsx';
-import MapPopup from './pages/MapPopup.jsx';
-import NewGenerating from './pages/NewGenerating.jsx';
-import NewResult from './pages/NewResult.jsx';
-import NewStyle from './pages/NewStyle.jsx';
-import MyPage from './pages/MyPage.jsx';
-import Shelf from './pages/Shelf.jsx';
 import useDesktop from './hooks/useDesktop.js';
+import { Login, Privacy, Signup, Start, Verify } from './v3/pages/Auth.jsx';
+import { CreateInfo, CreatePhotos } from './v3/pages/Create1.jsx';
+import { CreateChat, CreatePreview, CreateTalk, CreateWriting, EditText, Publish } from './v3/pages/Create2.jsx';
+import ErrorGallery from './v3/pages/ErrorGallery.jsx';
+import Home from './v3/pages/Home.jsx';
+import Me, { MeEdit, MeFace, MeInfo } from './v3/pages/Me.jsx';
+import { MineDetail, MineList } from './v3/pages/Mine.jsx';
+import { SocialDiary, SocialHome, SocialList, SocialSearch } from './v3/pages/Social.jsx';
+import { useApp } from './v3/store.jsx';
 
-function onboarded() {
-  try {
-    return localStorage.getItem('seoul-diary:onboarded') === '1';
-  } catch {
-    return false;
-  }
-}
-
-/** 처음 방문한 사람은 온보딩부터 보여 준다. */
-function RequireOnboarding({ children }) {
+/** 로그인하지 않은 사람은 시작 화면(A1)으로 보낸다. */
+function RequireAuth({ children }) {
+  const { auth } = useApp();
   const location = useLocation();
-  return onboarded() ? children : <Navigate to="/onboarding" replace state={{ from: location }} />;
+  return auth.me ? children : <Navigate to="/start" replace state={{ from: location }} />;
 }
-
-/** Figma 에 데스크톱(1440) 프레임이 있는 화면. 나머지는 데스크톱에서도 폰 프레임으로 보여 준다. */
-const WIDE_ROUTES = ['/', '/today', '/new/chat', '/new/result', '/shelf', '/me'];
+/** 이미 로그인했다면 홈으로. (검수용 ?s= 미리보기는 그대로 보여 준다) */
+function GuestOnly({ children }) {
+  const { auth } = useApp();
+  const { search } = useLocation();
+  return auth.me && !search.includes('s=') ? <Navigate to="/" replace /> : children;
+}
+const A = (el) => <RequireAuth>{el}</RequireAuth>;
 
 export default function App() {
-  const { pathname } = useLocation();
-  const wide = useDesktop() && WIDE_ROUTES.includes(pathname);
+  const wide = useDesktop();
   return (
     <div className={`app ${wide ? 'app--wide' : ''}`}>
       <Routes>
-        <Route path="/onboarding" element={<Onboarding />} />
-        <Route path="/consent" element={<Consent />} />
-        <Route path="/" element={<RequireOnboarding><Home /></RequireOnboarding>} />
-        <Route path="/today" element={<RequireOnboarding><Today /></RequireOnboarding>} />
-        <Route path="/diary" element={<RequireOnboarding><MyDiary /></RequireOnboarding>} />
-        <Route path="/new/photos" element={<RequireOnboarding><NewPhotos /></RequireOnboarding>} />
-        <Route path="/new/confirm" element={<RequireOnboarding><NewConfirm /></RequireOnboarding>} />
-        <Route path="/new/chat" element={<RequireOnboarding><NewChat /></RequireOnboarding>} />
-        <Route path="/new/style" element={<RequireOnboarding><NewStyle /></RequireOnboarding>} />
-        <Route path="/new/generating" element={<RequireOnboarding><NewGenerating /></RequireOnboarding>} />
-        <Route path="/new/result" element={<RequireOnboarding><NewResult /></RequireOnboarding>} />
-        <Route path="/map" element={<RequireOnboarding><MapPopup /></RequireOnboarding>} />
-        <Route path="/book/:district" element={<RequireOnboarding><BookOpen /></RequireOnboarding>} />
-        <Route path="/shelf" element={<RequireOnboarding><Shelf /></RequireOnboarding>} />
-        <Route path="/shelf/:name" element={<RequireOnboarding><District /></RequireOnboarding>} />
-        <Route path="/me" element={<RequireOnboarding><MyPage /></RequireOnboarding>} />
-        <Route path="/soon" element={<ComingSoon />} />
+        {/* 01 인증 */}
+        <Route path="/start" element={<GuestOnly><Start /></GuestOnly>} />
+        <Route path="/signup" element={<GuestOnly><Signup /></GuestOnly>} />
+        <Route path="/verify" element={<Verify />} />
+        <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
+        <Route path="/privacy" element={<Privacy />} />
+
+        {/* 02 홈 */}
+        <Route path="/" element={A(<Home />)} />
+
+        {/* 03~05 일기 만들기 */}
+        <Route path="/create" element={A(<CreatePhotos />)} />
+        <Route path="/create/info" element={A(<CreateInfo />)} />
+        <Route path="/create/talk" element={A(<CreateTalk />)} />
+        <Route path="/create/talk/:n" element={A(<CreateChat />)} />
+        <Route path="/create/writing/:n" element={A(<CreateWriting />)} />
+        <Route path="/create/preview" element={A(<CreatePreview />)} />
+        <Route path="/create/edit/:n" element={A(<EditText />)} />
+        <Route path="/create/publish" element={A(<Publish />)} />
+
+        {/* 06 소셜 다이어리 */}
+        <Route path="/social" element={A(<SocialHome />)} />
+        <Route path="/social/search" element={A(<SocialSearch />)} />
+        <Route path="/social/diary/:id" element={A(<SocialDiary />)} />
+        <Route path="/social/:gu" element={A(<SocialList />)} />
+
+        {/* 07 내 일기 */}
+        <Route path="/mine" element={A(<MineList />)} />
+        <Route path="/mine/:id" element={A(<MineDetail />)} />
+        <Route path="/mine/:id/edit/:n" element={A(<EditText mine />)} />
+        <Route path="/mine/:id/visibility" element={A(<Publish mine />)} />
+
+        {/* 08 마이페이지 */}
+        <Route path="/me" element={A(<Me />)} />
+        <Route path="/me/settings" element={A(<Me initial="settings" />)} />
+        <Route path="/me/edit" element={A(<MeEdit />)} />
+        <Route path="/me/info" element={A(<MeInfo />)} />
+        <Route path="/me/face" element={A(<MeFace />)} />
+
+        {/* 09 에러 카드 모아 보기 (검수용) */}
+        <Route path="/errors" element={<ErrorGallery />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
