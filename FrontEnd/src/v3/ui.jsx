@@ -6,7 +6,7 @@ import Logo from '../components/Logo.jsx';
 import NoticeSheet from '../components/NoticeSheet.jsx';
 import { AppBar, Polaroid, Progress, StatusBar, TabBar, Tape, WoodDesk } from '../components/common.jsx';
 import useDesktop from '../hooks/useDesktop.js';
-import { ERRORS, PAINT_FILTERS } from './data.js';
+import { ERRORS } from './data.js';
 
 /** `?s=` 로 화면 상태를 미리 볼 수 있다 (디자인 검수용) */
 export function usePreview() {
@@ -14,12 +14,10 @@ export function usePreview() {
   return sp.get('s');
 }
 
-/** 사진 한 장. 그림 변환이 끝난 사진은 필터로 그림체를 흉내 낸다. */
-export function PhotoImg({ p, raw = false, className = '', style }) {
+/** 사진 한 장. 서버가 내려준 이미지(변환 이미지 또는 원본)를 그대로 보여 준다. 없으면 빈 사진 자리표시. */
+export function PhotoImg({ p, className = '', style }) {
   const src = p.url || assets[p.scene || 'sceneEmpty'];
-  const painted = !raw && p.conv !== 'orig' && p.conv !== 'wait' && p.conv !== 'run' && p.conv !== 'fail' && !p.original;
-  const filter = painted ? PAINT_FILTERS[(p.filter || 0) % PAINT_FILTERS.length] : undefined;
-  return <img className={`v3-photo ${className}`} src={src} alt="" style={{ filter, ...style }} />;
+  return <img className={`v3-photo ${className}`} src={src} alt="" style={style} />;
 }
 
 /**
@@ -148,8 +146,8 @@ export function Sheet({ onClose, children, tape = true }) {
 
 /** API 에러 코드 → 에러 카드. actions 는 코드별 버튼 순서대로 핸들러를 받는다. */
 export function ErrorCard({ code, onAction = [], onClose }) {
-  const e = ERRORS[code];
-  if (!e) return null;
+  const e = ERRORS[code] || ERRORS.INTERNAL_ERROR; // 모르는 코드도 빈 화면 대신 일반 오류 카드로 보여 준다
+  if (!code) return null;
   return (
     <NoticeSheet
       icon={e.icon}

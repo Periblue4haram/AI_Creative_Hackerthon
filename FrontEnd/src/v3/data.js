@@ -1,4 +1,4 @@
-// SEOUL MATE v3 — 목업 데이터와 문구. 백엔드 연동 전까지 화면을 채운다.
+// SEOUL MATE v3 — 규칙 상수와 문구. 서버 데이터는 api.js / store.jsx 가 가져온다.
 
 /** 서비스 지역 (v3: 5개 구) */
 export const GUS = ['마포구', '종로구', '중구', '강남구', '서대문구'];
@@ -35,75 +35,11 @@ export const monthDayDot = (d) => `${pad(d.getMonth() + 1)}.${pad(d.getDate())}`
 
 /** 공개 범위 */
 export const VIS = { public: '공개', text: '글만', private: '비공개' };
-export const SCENES = ['sceneSeongsu', 'sceneHanRiver', 'sceneGyeongbok'];
 
-const T1 =
-  '오늘은 연남동 골목을 천천히 걸었다. 붉은 벽돌 건물 1층 카페에서 라테를 마시며 소설을 읽었는데, 창밖으로 오후 햇살이 길게 들어와 펼친 책 위가 따뜻하게 물들었다.';
-const T2 =
-  '비가 그친 뒤 돌담길을 따라 걸었다. 젖은 돌에서 나는 냄새가 좋아서 일부러 천천히 걸었고, 처마 아래에서 한참 하늘을 올려다봤다.';
-const T3 = '처음 쓰는 일기. 퇴근길에 본 노을이 오래 남아서 한참을 서 있었다.';
-
-/** 내 일기 (최신순). 첫 일기의 2번째 페이지는 신고로 차단된 상태 */
-export const SEED_ENTRIES = [
-  {
-    id: 'e3', day: '2026-11-04', public: true,
-    pages: [
-      { id: 'e3p1', gu: '마포구', text: T1, scene: 'sceneSeongsu', vis: 'public' },
-      { id: 'e3p2', gu: '마포구', text: T2, scene: 'sceneGyeongbok', vis: 'private', blocked: true },
-      { id: 'e3p3', gu: '마포구', text: '저녁에는 망원동 한강공원에 앉아 노을을 기다렸다. 바람이 선선했다.', scene: 'sceneHanRiver', vis: 'text' },
-    ],
-  },
-  {
-    id: 'e2', day: '2026-11-02', public: true,
-    pages: [
-      { id: 'e2p1', gu: '종로구', text: T2, scene: 'sceneGyeongbok', vis: 'public' },
-      { id: 'e2p2', gu: '종로구', text: '익선동 한옥 골목에서 따뜻한 차를 마셨다. 창밖으로 지붕 위 빗방울이 맺혀 있었다.', scene: 'sceneSeongsu', vis: 'public' },
-    ],
-  },
-  {
-    id: 'e1', day: '2026-10-28', public: false,
-    pages: [{ id: 'e1p1', gu: '서대문구', text: T3, scene: 'sceneHanRiver', vis: 'private' }],
-  },
-];
-
-/** 소셜 다이어리 피드 (다른 사람 일기). 좋아요·싫어요 수는 절대 보이지 않는다. */
-export const SEED_FEED = [
-  { id: 'f1', nick: '서울산책러', day: '2026-11-06', gu: '마포구', text: T1, scene: 'sceneSeongsu', vis: 'public', diary: 'd1', mine: false },
-  { id: 'f2', nick: '여행자204518', day: '2026-11-06', gu: '마포구', text: '오랜만에 혼자 걷는 망원 시장. 사람 사이를 천천히 걷는 것만으로 마음이 놓였다.', vis: 'text', diary: 'd2', mine: false },
-  { id: 'f3', nick: '돌담길산책', day: '2026-11-02', gu: '종로구', text: T2, scene: 'sceneGyeongbok', vis: 'public', diary: 'd3', mine: false },
-  { id: 'f4', nick: '여행자204518', day: '2026-10-30', gu: '서대문구', text: '우산을 접고 처마 밑에서 비 냄새를 맡았다.', vis: 'text', diary: 'd2', mine: false },
-  { id: 'f5', nick: '명동러', day: '2026-11-03', gu: '중구', text: '명동 골목 끝 작은 서점에서 엽서를 샀다. 계산대 아저씨가 건넨 한마디가 오래 남았다.', scene: 'sceneSeongsu', vis: 'public', diary: 'd4', mine: false },
-  { id: 'f6', nick: '강남토박이', day: '2026-11-01', gu: '강남구', text: '선정릉 가을 숲길을 걸었다. 노란 잎이 바닥에 두껍게 쌓여 있었다.', scene: 'sceneHanRiver', vis: 'public', diary: 'd5', mine: false },
-  { id: 'f7', nick: '서울산책러', day: '2026-11-04', gu: '마포구', text: T1, scene: 'sceneSeongsu', vis: 'public', diary: 'e3', mine: true },
-];
-/** 일기 상세(S3)에 시간순으로 보여 줄 같은 작성자의 페이지들 */
-export const SEED_DIARIES = {
-  d1: { nick: '서울산책러', day: '2026-11-06', gu: '마포구', pages: [
-    { id: 'd1p1', text: T1, scene: 'sceneSeongsu', vis: 'public' },
-    { id: 'd1p2', text: T2, scene: 'sceneGyeongbok', vis: 'public' },
-  ] },
-  d2: { nick: '여행자204518', day: '2026-11-06', gu: '마포구', pages: [
-    { id: 'd2p1', text: '오랜만에 혼자 걷는 망원 시장. 사람 사이를 천천히 걷는 것만으로 마음이 놓였다.', vis: 'text' },
-  ] },
-  d3: { nick: '돌담길산책', day: '2026-11-02', gu: '종로구', pages: [{ id: 'd3p1', text: T2, scene: 'sceneGyeongbok', vis: 'public' }] },
-  d4: { nick: '명동러', day: '2026-11-03', gu: '중구', pages: [{ id: 'd4p1', text: '명동 골목 끝 작은 서점에서 엽서를 샀다. 계산대 아저씨가 건넨 한마디가 오래 남았다.', scene: 'sceneSeongsu', vis: 'public' }] },
-  d5: { nick: '강남토박이', day: '2026-11-01', gu: '강남구', pages: [{ id: 'd5p1', text: '선정릉 가을 숲길을 걸었다. 노란 잎이 바닥에 두껍게 쌓여 있었다.', scene: 'sceneHanRiver', vis: 'public' }] },
-};
-
-/** 챗봇 질문 흐름 (사진마다) */
-export const CHAT_FIRST = '사진 속 장면이 인상적이에요. 이곳에서 무엇을 하셨나요?';
-export const CHAT_NEXT = [
-  '그 장면에서 가장 기억에 남는 순간은 언제였나요?',
-  '그때 기분은 어땠나요?',
-  '함께한 사람이나 마주친 풍경이 있었나요?',
-  '오늘 이 장면을 한 줄로 남긴다면요?',
-  '더 들려주고 싶은 이야기가 있나요?',
-];
-
-/** 에러 카드 16종 (API 에러 코드 → 문구) */
+/** 에러 카드 (API 에러 코드 → 문구). 처음 16종은 디자인, 나머지는 서버 코드 대응용 */
 export const ERRORS = {
   EMAIL_SEND_FAILED: { icon: 'alert', title: '인증 메일을 보내지 못했어요', body: '계정은 만들어졌어요. 잠시 뒤 다시 보내 주세요.', actions: ['다시 보내기'] },
-  TOO_MANY_REQUESTS: { icon: 'refresh', title: '조금만 기다려 주세요', body: '인증 메일은 60초에 한 번만 보낼 수 있어요. 48초 남았어요.', actions: ['확인'] },
+  TOO_MANY_REQUESTS: { icon: 'refresh', title: '조금만 기다려 주세요', body: '인증 메일은 60초에 한 번만 보낼 수 있어요. 잠시 뒤에 다시 눌러 주세요.', actions: ['확인'] },
   EMAIL_NOT_VERIFIED: { icon: 'user', title: '이메일 인증이 필요해요', body: '인증을 마치면 로그인할 수 있어요.', actions: ['인증 코드 입력'] },
   INVALID_GOOGLE_TOKEN: { icon: 'user', title: 'Google로 로그인하지 못했어요', body: '다시 시도하거나 이메일로 로그인해 주세요.', actions: ['다시 시도', '이메일로'] },
   PAGE_LIMIT_EXCEEDED: { icon: 'alert', title: '사진은 4장까지 담을 수 있어요', body: '일기 한 편에 1~4장을 넣을 수 있어요.', actions: ['사진 다시 고르기'] },
@@ -118,6 +54,16 @@ export const ERRORS = {
   SEARCH_AI_UNAVAILABLE: { icon: 'refresh', title: '지금은 검색할 수 없어요', body: '잠시 뒤 다시 찾아보세요. 구를 골라 둘러볼 수도 있어요.', actions: ['다시 시도'] },
   UNAUTHORIZED: { icon: 'user', title: '다시 로그인해 주세요', body: '로그인이 만료됐어요.', actions: ['로그인'] },
   NOT_FOUND: { icon: 'alert', title: '볼 수 없는 일기예요', body: '삭제됐거나 비공개로 바뀌었어요.', actions: ['목록으로'] },
+  /* 서버 계약(api-spec.md)에 있지만 디자인에 카드가 없던 코드 — 같은 모양으로 추가 */
+  INTERNAL_ERROR: { icon: 'alert', title: '문제가 생겼어요', body: '잠시 뒤 다시 시도해 주세요.', actions: ['확인'] },
+  NETWORK_ERROR: { icon: 'refresh', title: '서버에 연결하지 못했어요', body: '인터넷 연결을 확인하고 다시 시도해 주세요.', actions: ['확인'] },
+  INVALID_STATE: { icon: 'alert', title: '지금은 할 수 없어요', body: '일기 상태가 바뀌었어요. 처음 화면으로 돌아가 다시 확인해 주세요.', actions: ['확인'] },
+  VALIDATION_FAILED: { icon: 'alert', title: '입력을 확인해 주세요', body: '입력한 내용이 맞지 않아요.', actions: ['확인'] },
+  METADATA_INCOMPLETE: { icon: 'pin', title: '날짜나 위치가 비어 있어요', body: '모든 사진의 날짜와 위치를 채워 주세요.', actions: ['확인'] },
+  DATE_MISMATCH: { icon: 'alert', title: '다른 날 찍은 사진이 있어요', body: '일기 한 편에는 같은 날 사진만 담을 수 있어요.', actions: ['확인'] },
+  PAGE_REPORT_BLOCKED: { icon: 'alert', title: '신고로 차단된 페이지예요', body: '차단된 페이지는 다시 공개할 수 없어요.', actions: ['확인'] },
+  CHAT_LIMIT_REACHED: { icon: 'chat', title: '일기 분량을 다 채웠어요', body: '이제 일기 글을 만들어 주세요.', actions: ['확인'] },
+  AUTH_FAILED: { icon: 'user', title: '로그인하지 못했어요', body: '잠시 뒤 다시 시도해 주세요.', actions: ['확인'] },
 };
 
 /** 개인정보처리방침 8개 항목 */
@@ -134,14 +80,3 @@ export const POLICY = [
 
 /** 신고 사유 */
 export const REPORT_REASONS = ['스팸·광고', '부적절한 내용', '개인정보 노출', '기타'];
-
-/** 목업 이미지 처리: 그림체 변환을 흉내 내는 필터 (실제 변환은 서버가 한다) */
-export const PAINT_FILTER = 'saturate(0.85) contrast(0.95) sepia(0.18)';
-export const PAINT_FILTERS = [PAINT_FILTER, 'saturate(1.1) contrast(1.02) sepia(0.28) hue-rotate(-8deg)', 'saturate(0.7) contrast(0.92) sepia(0.35)'];
-
-export const DEMO_PHOTOS = [
-  { name: '사진 1', scene: 'sceneSeongsu', at: new Date(2026, 10, 6, 14, 30), gu: '마포구' },
-  { name: '사진 2', scene: 'sceneHanRiver', at: new Date(2026, 10, 6, 15, 10), gu: '마포구' },
-  { name: '사진 3', scene: 'sceneGyeongbok', at: new Date(2026, 10, 6, 16, 5), gu: null },
-  { name: '사진 4', scene: 'sceneEmpty', at: null, gu: '마포구', failConv: true },
-];

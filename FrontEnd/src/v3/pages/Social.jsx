@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import assets from '../../assetMap.js';
 import { Button } from '../../components/common.jsx';
 import useDesktop from '../../hooks/useDesktop.js';
-import { GUS, REPORT_REASONS, SEED_DIARIES, SEED_FEED, mdDay } from '../data.js';
+import { REPORT_CODES } from '../adapt.js';
+import { GUS, REPORT_REASONS, mdDay } from '../data.js';
 import { useApp } from '../store.jsx';
 import { ErrorCard, Page, PhotoImg, Sheet, usePreview } from '../ui.jsx';
 
@@ -30,18 +31,17 @@ function useReport() {
     if (social.isReported(item.id)) return setCard('ALREADY_REPORTED');
     setTarget(item);
   };
+  const send = async (reasonIdx, detail) => {
+    const t = target;
+    setTarget(null);
+    if (!t || t.id === 'preview') return;
+    const r = await social.report(t.id, REPORT_CODES[reasonIdx], detail);
+    if (!r.ok) setCard(r.code); // CANNOT_REPORT_OWN_PAGE · ALREADY_REPORTED · NOT_FOUND …
+  };
   const overlay = (
     <>
       {card && <ErrorCard code={card} onClose={() => setCard(null)} />}
-      {target && (
-        <ReportSheet
-          onClose={() => setTarget(null)}
-          onSend={() => {
-            if (target) social.report(target.id);
-            setTarget(null);
-          }}
-        />
-      )}
+      {target && <ReportSheet onClose={() => setTarget(null)} onSend={send} />}
     </>
   );
   return [open, overlay];
@@ -62,7 +62,7 @@ function ReportSheet({ onClose, onSend }) {
       </div>
       <textarea className="v3-textarea v3-textarea--sm" placeholder="자세한 내용 (선택, 500자 이하)" maxLength={500} value={more} onChange={(e) => setMore(e.target.value)} aria-label="신고 내용" />
       <div className="notice__actions">
-        <button type="button" className="btn btn--sm btn--primary" disabled={!why} onClick={onSend}>신고하기</button>
+        <button type="button" className="btn btn--sm btn--primary" disabled={!why} onClick={() => onSend(REPORT_REASONS.indexOf(why), more.trim())}>신고하기</button>
         <button type="button" className="btn btn--sm btn--ghost" onClick={close}>취소</button>
       </div>
     </Sheet>
@@ -77,7 +77,7 @@ function FeedCard({ item, onOpen, onReport }) {
     <article className="v3-feed">
       <button type="button" className="v3-feed__main" onClick={onOpen}>
         <span className="v3-feed__head"><b className="t-body-strong">{item.nick}</b><span className="t-caption v3-muted">{mdDay(item.day)}</span></span>
-        {item.vis === 'public' && item.scene ? <PhotoImg p={item} className="v3-feed__img" /> : <i className="v3-badge v3-feed__tag">글만 공개한 페이지</i>}
+        {item.vis === 'public' && item.url ? <PhotoImg p={item} className="v3-feed__img" /> : <i className="v3-badge v3-feed__tag">글만 공개한 페이지</i>}
         <span className="t-body v3-feed__text">{cut(item.text)}</span>
       </button>
       <div className="v3-feed__act">
@@ -89,19 +89,8 @@ function FeedCard({ item, onOpen, onReport }) {
   );
 }
 
-/** 내 일기에서 공개된 페이지도 피드에 섞여 보인다 */
-function useFeed() {
-  const { diary, db, auth } = useApp();
-  return useMemo(() => {
-    const mine = diary.entries.filter((e) => e.public).flatMap((e) =>
-      e.pages.filter((p) => !p.blocked && (p.vis === 'public' || p.vis === 'text')).map((p) => ({ id: p.id, nick: auth.me?.nick || '나', day: e.day, gu: p.gu, text: p.text, scene: p.scene, url: p.url, original: p.original, vis: p.vis, diary: e.id, mine: true })),
-    );
-    const seedIds = new Set(SEED_FEED.filter((f) => f.mine).map((f) => f.id));
-    const others = SEED_FEED.filter((f) => !f.mine && !seedIds.has(f.id));
-    return [...others, ...mine].sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : 0));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [db.entries, auth.me?.nick]);
-}
+/** 상세로 갈 때 지금 보던 구를 같이 넘긴다 (그 구의 페이지만 보여 주기 위해) */
+const openDiary = (nav, f, gu) => nav(`/social/diary/${f.diary}${gu && gu !== ALL ? `?gu=${encodeURIComponent(gu)}` : ''}`);
 
 const SPINES = ['#b99b7a', '#8c7256', '#a9b49a', '#d9b3a3', '#6e4f3a', '#a3825f'];
 function Shelf({ onPick }) {
@@ -151,10 +140,31 @@ export function SocialHome() {
 export function SocialList() {
   const nav = useNavigate();
   const { gu = ALL } = useParams();
-  const feed = useFeed();
+  const { social } = useApp();
   const [report, overlay] = useReport();
   const [q, setQ] = useState('');
-  const list = feed.filter((f) => gu === ALL || f.gu === gu);
+  const [st, setSt] = useState({ items: [], hasNext: false, page: 0, loading: true, code: null });
+  const [more, setMore] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setSt({ items: [], hasNext: false, page: 0, loading: true, code: null });
+    social.feed(gu === ALL ? null : gu, 0).then((r) => {
+      if (alive) setSt(r.ok ? { items: r.items, hasNext: r.hasNext, page: 0, loading: false, code: null } : { items: [], hasNext: false, page: 0, loading: false, code: r.code });
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gu]);
+  const next = async () => {
+    setMore(true);
+    const r = await social.feed(gu === ALL ? null : gu, st.page + 1);
+    setMore(false);
+    if (r.ok) setSt((x) => ({ ...x, items: [...x.items, ...r.items], hasNext: r.hasNext, page: x.page + 1 }));
+    else setSt((x) => ({ ...x, code: r.code }));
+  };
+
   const side = (
     <>
       <h2 className="t-heading">소셜 다이어리</h2>
@@ -167,11 +177,13 @@ export function SocialList() {
     </>
   );
   return (
-    <Page title={gu} onBack={() => nav('/social')} tab="social" side={side} overlay={overlay} dtitle={gu}>
-      {list.length === 0 && <p className="v3-empty">아직 공개된 일기가 없어요.</p>}
+    <Page title={gu} onBack={() => nav('/social')} tab="social" side={side} overlay={<>{overlay}{st.code && <ErrorCard code={st.code} onClose={() => setSt((x) => ({ ...x, code: null }))} />}</>} dtitle={gu}>
+      {st.loading && <p className="t-caption v3-lead">불러오는 중이에요…</p>}
+      {!st.loading && !st.code && st.items.length === 0 && <p className="v3-empty">아직 공개된 일기가 없어요.</p>}
       <div className="v3-feedlist">
-        {list.map((f) => <FeedCard key={f.id} item={f} onOpen={() => nav(`/social/diary/${f.diary}`)} onReport={report} />)}
+        {st.items.map((f) => <FeedCard key={f.id} item={f} onOpen={() => openDiary(nav, f, gu)} onReport={report} />)}
       </div>
+      {st.hasNext && <Button small variant="ghost" onClick={next} disabled={more}>{more ? '불러오는 중…' : '더 보기'}</Button>}
     </Page>
   );
 }
@@ -180,13 +192,23 @@ export function SocialList() {
 export function SocialDiary() {
   const nav = useNavigate();
   const { id } = useParams();
-  const { diary, social, auth } = useApp();
+  const [sp] = useSearchParams();
+  const gu = sp.get('gu');
+  const { social } = useApp();
   const [report, overlay] = useReport();
-  const own = diary.get(id);
-  const d = own
-    ? { nick: auth.me?.nick, day: own.day, gu: own.pages[0]?.gu, pages: own.pages.filter((p) => !p.blocked && (p.vis === 'public' || p.vis === 'text')), mine: true }
-    : SEED_DIARIES[id];
-  if (!d) return <Page title="소셜 다이어리" tab="social" overlay={<ErrorCard code="NOT_FOUND" onClose={() => nav('/social')} onAction={[() => nav('/social')]} />}><div /></Page>;
+  const [st, setSt] = useState({ d: null, code: null });
+  useEffect(() => {
+    let alive = true;
+    setSt({ d: null, code: null });
+    social.detail(id, gu).then((r) => alive && setSt(r.ok ? { d: r.data, code: null } : { d: null, code: r.code }));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, gu]);
+  const d = st.d;
+  if (st.code) return <Page title="소셜 다이어리" tab="social" overlay={<ErrorCard code={st.code} onClose={() => nav('/social')} onAction={[() => nav('/social')]} />}><div /></Page>;
+  if (!d) return <Page title="소셜 다이어리" tab="social" onBack={() => nav(-1)}><p className="t-caption v3-lead">불러오는 중이에요…</p></Page>;
   return (
     <Page title={`${d.nick}의 일기`} onBack={() => nav(-1)} tab="social" overlay={overlay} wide>
       <p className="t-caption v3-muted">{mdDay(d.day)} · {d.gu} · 시간순 페이지</p>
@@ -195,13 +217,13 @@ export function SocialDiary() {
           const r = social.reaction(p.id);
           return (
             <article key={p.id} className="v3-feed v3-feed--page">
-              {p.vis === 'public' && (p.scene || p.url) && <PhotoImg p={p} className="v3-feed__img" />}
+              {p.vis === 'public' && p.url && <PhotoImg p={p} className="v3-feed__img" />}
               {p.vis !== 'public' && <i className="v3-badge v3-feed__tag">글만 공개한 페이지</i>}
               <p className="t-body">{p.text}</p>
               <div className="v3-feed__act">
                 <button type="button" className={r === 'like' ? 'on' : ''} aria-pressed={r === 'like'} onClick={() => social.react(p.id, 'like')}><ThumbUp on={r === 'like'} /> 좋아요</button>
                 <button type="button" className={r === 'dislike' ? 'on' : ''} aria-pressed={r === 'dislike'} onClick={() => social.react(p.id, 'dislike')}><ThumbDown on={r === 'dislike'} /> 싫어요</button>
-                <button type="button" className="v3-feed__flag" aria-label="신고" onClick={() => report({ id: p.id, mine: !!d.mine })}><Flag /></button>
+                <button type="button" className="v3-feed__flag" aria-label="신고" onClick={() => report({ id: p.id, mine: p.mine })}><Flag /></button>
               </div>
             </article>
           );
@@ -211,66 +233,53 @@ export function SocialDiary() {
   );
 }
 
-/** 간단한 의미 검색 흉내: 글자 2개 단위(바이그램) 겹침 + 몇 가지 개념어 확장. 실제 검색은 서버(AI)가 한다. */
-const STOP = new Set(['에서', '하는', '했다', '있는', '이다', '으로']);
-const grams = (t) => {
-  const c = t.replace(/[^가-힣a-z0-9]/gi, '');
-  const out = new Set();
-  for (let i = 0; i < c.length - 1; i += 1) if (!STOP.has(c.slice(i, i + 2))) out.add(c.slice(i, i + 2));
-  return out;
-};
-const CONCEPTS = [
-  [/비 |비$|우산|장마|빗/, /비가|비 냄새|우산|젖은|처마|빗방울/, 3],
-  [/걷|산책|걸/, /걸었|걷는|골목|길을|산책/, 2],
-  [/노을|석양/, /노을/, 2],
-  [/카페|커피|라테/, /카페|라테|커피|차를/, 2],
-  [/책|독서|소설/, /소설|책|서점/, 2],
-  [/혼자/, /혼자/, 1],
-];
-function searchFeed(q, feed) {
-  const g = grams(q);
-  return feed
-    .map((f) => {
-      const t = grams(f.text);
-      let n = 0;
-      g.forEach((x) => t.has(x) && (n += 1));
-      CONCEPTS.forEach(([qr, tr, w]) => qr.test(q) && tr.test(f.text) && (n += w));
-      return [f, n];
-    })
-    .filter(([, n]) => n >= 2)
-    .sort((a, b) => b[1] - a[1])
-    .map(([f]) => f);
-}
-
-/* ─────────── S4 · AI 검색 결과 ─────────── */
+/* ─────────── S4 · AI 검색 결과 (의미 검색은 서버가 한다. 유사도 높은 순) ─────────── */
 export function SocialSearch() {
   const nav = useNavigate();
   const [sp, setSp] = useSearchParams();
   const s = usePreview();
-  const q0 = sp.get('q') || (s === 'empty' ? '우주 정거장에서 먹은 라면' : '비 오는 날 혼자 걷기 좋은 곳');
+  const { social } = useApp();
+  const q0 = sp.get('q') || '';
   const [q, setQ] = useState(q0);
   const [gu, setGu] = useState(ALL);
-  const feed = useFeed();
   const [report, overlay] = useReport();
-  const [fail, setFail] = useState(s === 'aifail');
-  const rows = searchFeed(q0, feed).filter((f) => gu === ALL || f.gu === gu);
+  const [st, setSt] = useState({ rows: [], loading: !!q0, code: s === 'aifail' ? 'AI_UNAVAILABLE' : null });
+
+  useEffect(() => {
+    if (!q0) return undefined;
+    let alive = true;
+    setSt((x) => ({ ...x, rows: [], loading: true }));
+    social.search(q0, gu === ALL ? null : gu).then((r) => {
+      if (alive) setSt(r.ok ? { rows: r.items, loading: false, code: null } : { rows: [], loading: false, code: r.code });
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q0, gu]);
+
+  const failCode = st.code === 'AI_UNAVAILABLE' ? 'SEARCH_AI_UNAVAILABLE' : st.code;
+  const empty = q0 && !st.loading && !st.code && st.rows.length === 0;
   return (
-    <Page title="AI 검색" onBack={() => nav('/social')} tab="social" wide overlay={<>{overlay}{fail && <ErrorCard code="SEARCH_AI_UNAVAILABLE" onClose={() => setFail(false)} onAction={[() => setFail(false), () => nav('/social')]} />}</>}>
+    <Page title="AI 검색" onBack={() => nav('/social')} tab="social" wide overlay={<>{overlay}{failCode && <ErrorCard code={failCode} onClose={() => setSt((x) => ({ ...x, code: null }))} onAction={[() => { setSt((x) => ({ ...x, code: null })); setSp({ q: q0 }); }, () => nav('/social')]} />}</>}>
       <SearchBox q={q} setQ={setQ} onGo={(t) => t && setSp({ q: t })} />
       <div className="chip-row v3-chips">
         {[ALL, ...GUS].map((g) => (
           <button key={g} type="button" className={`chip chip--tight ${g === gu ? 'chip--on' : ''}`} aria-pressed={g === gu} onClick={() => setGu(g)}>{g}</button>
         ))}
       </div>
-      {rows.length === 0 ? (
+      {!q0 && <p className="v3-empty">찾고 싶은 장면이나 기분을 적어 보세요.</p>}
+      {st.loading && <p className="t-caption v3-lead">비슷한 일기를 찾는 중이에요…</p>}
+      {empty && (
         <div className="v3-empty">
           <b className="t-heading">비슷한 일기가 없어요</b>
           <p className="t-body">다른 말로 찾아보거나 구를 바꿔 보세요.</p>
           <Button small variant="ghost" onClick={() => nav('/social')}>구로 둘러보기</Button>
         </div>
-      ) : (
+      )}
+      {st.rows.length > 0 && (
         <div className="v3-feedlist">
-          {rows.map((f) => <FeedCard key={f.id} item={f} onOpen={() => nav(`/social/diary/${f.diary}`)} onReport={report} />)}
+          {st.rows.map((f) => <FeedCard key={f.id} item={f} onOpen={() => openDiary(nav, f, gu)} onReport={report} />)}
         </div>
       )}
     </Page>

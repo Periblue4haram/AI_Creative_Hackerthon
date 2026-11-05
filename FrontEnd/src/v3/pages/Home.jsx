@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import assets from '../../assetMap.js';
 import DesktopNav from '../../components/DesktopNav.jsx';
@@ -15,10 +16,14 @@ export default function Home() {
   const nav = useNavigate();
   const desk = useDesktop();
   const { diary } = useApp();
+  useEffect(() => {
+    diary.load(); // 저장한 일기를 서버에서 불러온다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const list = diary.entries;
   const last = list[0];
-  const count = list.length;
-  const lastGu = last?.pages[0]?.gu;
+  const count = diary.total;
+  const lastGu = last?.gu;
   const lastLine = last ? `마지막 ${shortDay(last.day)} · ${lastGu}` : '첫 장을 기다려요';
   const lastLabel = last ? `${shortDay(last.day)} (${dowDay(last.day)}) · ${lastGu}` : '';
 
@@ -44,7 +49,7 @@ export default function Home() {
             {list.length > 1 && (
               <div className="v3-home__polas">
                 {list.slice(0, 2).map((e, i) => (
-                  <Polaroid key={e.id} src={assets[e.pages[0].scene || 'sceneEmpty']} caption={`${shortDay(e.day)} · ${e.pages[0].gu}`} scale={0.74} rotate={i ? 4 : -4} />
+                  <Polaroid key={e.id} src={e.thumb || assets.sceneEmpty} caption={`${shortDay(e.day)} · ${e.gu}`} scale={0.74} rotate={i ? 4 : -4} />
                 ))}
               </div>
             )}
@@ -76,10 +81,10 @@ export default function Home() {
       <div className="v3-home__layer">
         {last ? (
           <button type="button" className="v3-last" onClick={() => nav(`/mine/${last.id}`)}>
-            <img src={assets[last.pages[0].scene || 'sceneEmpty']} alt="" />
+            <img src={last.thumb || assets.sceneEmpty} alt="" />
             <span className="v3-last__t">
               <b className="t-caption">지난 일기 · {lastLabel}</b>
-              <span className="t-caption">{cut(last.pages[0].text, 46)}</span>
+              <span className="t-caption">{cut(last.preview, 46)}</span>
             </span>
             <img className="v3-last__go" src={assets.iconChevronRight} alt="" />
           </button>
