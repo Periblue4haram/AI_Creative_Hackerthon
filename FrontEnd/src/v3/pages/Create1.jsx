@@ -1,55 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import assets from '../../assetMap.js';
 import { Button } from '../../components/common.jsx';
 import { NOTICE_ICONS } from '../../components/NoticeSheet.jsx';
 import useDesktop from '../../hooks/useDesktop.js';
-import { DEMO_PHOTOS, GUS, MAX_BYTES, MAX_PHOTOS, OK_TYPES, clockOf, monthDayDot, parseDay } from '../data.js';
+import { GUS, MAX_BYTES, MAX_PHOTOS, OK_TYPES, clockOf, mdDay, monthDayDot, parseDay } from '../data.js';
 import { useApp } from '../store.jsx';
 import { ErrorCard, Field, Input, Page, PhotoImg, Sheet, useFilePicker, usePreview } from '../ui.jsx';
 
-/** 파일 → 초안 사진 (EXIF 를 읽을 수 없으니 촬영 시각은 파일 수정 시각으로 대신한다) */
-const fromFile = (f) => ({ url: URL.createObjectURL(f), name: f.name, at: new Date(f.lastModified || Date.now()), gu: null });
-
-/** 검수용 미리보기 상태(`?s=`)에 맞는 예시 사진 묶음 */
-const READY = ['ok', 'regenfail', 'edit', 'publish'];
-const TALK_LIKE = ['date', 'mismatch', 'talk', 'fail', 'chat', '500', '800', 'aifail', 'writing'];
-const DEMO_TEXT = [
-  '오늘은 연남동 골목을 천천히 걸었다. 붉은 벽돌 건물 1층 카페에서 라테를 마시며 소설을 읽었는데, 창밖으로 오후 햇살이 길게 들어와 펼친 책 위가 따뜻하게 물들었다.',
-  '한강 변을 따라 걸으며 노을을 기다렸다. 바람이 선선해서 오래 앉아 있었다.',
-  '돌담길을 따라 걷다가 처마 아래에서 잠시 쉬었다. 젖은 돌 냄새가 좋았다.',
-  '저녁에는 시장 골목에서 따뜻한 국물을 먹고 집으로 돌아왔다.',
-];
-function demoSet(kind) {
-  const p = DEMO_PHOTOS.map((d) => ({ ...d }));
-  if (kind === 'date') p[2].gu = '마포구';
-  if (kind === 'mismatch') {
-    p[2].gu = '마포구';
-    p[3].at = new Date(2026, 10, 6, 17, 0);
-    p[1].at = new Date(2026, 10, 5, 22, 40);
-  }
-  if (TALK_LIKE.includes(kind) && kind !== 'date' && kind !== 'mismatch') {
-    p[2].gu = '마포구';
-    p[3].at = new Date(2026, 10, 6, 17, 20);
-  }
-  if (READY.includes(kind)) {
-    p[2].gu = '마포구';
-    p[3].at = new Date(2026, 10, 6, 17, 20);
-    p[3].gu = 'unknown';
-    p.forEach((x, k) => Object.assign(x, { conv: 'done', talk: 'done', text: DEMO_TEXT[k], failConv: false }));
-  }
-  return p;
+/** 디자인 검수용 `?s=` 미리보기는 서버 데이터가 필요 없는 화면에서만 쓴다. (예시 사진 로더는 서버 연동과 함께 없앴다) */
+export function useDemoLoader() {
+  return usePreview();
 }
-export function useDemoLoader(kinds) {
-  const { draft } = useApp();
-  const s = usePreview();
-  useEffect(() => {
-    if (s && (kinds.includes(s)) && draft.photos.length === 0) draft.addFiles(demoSet(s));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [s]);
-  return s;
-}
-export { demoSet };
 
 const GUS_TEXT = GUS.join(', ');
 
@@ -58,11 +20,13 @@ export function CreatePhotos() {
   const nav = useNavigate();
   const desk = useDesktop();
   const { draft } = useApp();
-  const s = useDemoLoader(['selected', 'out']);
+  const s = usePreview();
   const [card, setCard] = useState(null);
+  const [out, setOut] = useState(null); // 서비스 지역 밖으로 판정된 사진 번호
+  const [busy, setBusy] = useState(false);
   const photos = draft.photos;
 
-  const [pick, input] = useFilePicker((files) => {
+  const [pick, input] = useFilePicker(async (files) => {
     const okType = files.filter((f) => OK_TYPES.includes(f.type));
     if (okType.length < files.length) return setCard('UNSUPPORTED_IMAGE_TYPE');
     const small = okType.filter((f) => f.size <= MAX_BYTES);
@@ -71,19 +35,43 @@ export function CreatePhotos() {
       setCard('PAGE_LIMIT_EXCEEDED');
       return;
     }
-    draft.addFiles(small.map(fromFile));
+    const r = await draft.addFiles(small);
+    if (!r.ok) setCard(r.code === 'REGION_NOT_SUPPORTED' ? 'REGION_NOT_SUPPORTED' : r.code);
   });
   const [replaceId, setReplaceId] = useState(null);
-  const [pickOne, inputOne] = useFilePicker((files) => {
+  const [pickOne, inputOne] = useFilePicker(async (files) => {
     const f = files[0];
     if (!OK_TYPES.includes(f.type)) return setCard('UNSUPPORTED_IMAGE_TYPE');
     if (f.size > MAX_BYTES) return setCard('FILE_TOO_LARGE');
-    draft.replace(replaceId, fromFile(f));
+    const r = await draft.replace(replaceId, f);
+    if (!r.ok) setCard(r.code);
+    else setOut(null);
   }, false);
+
+  /** 사진을 서버에 올려 초안을 만든다. 서버가 EXIF 의 날짜·위치를 읽는다. */
+  const next = async () => {
+    if (draft.diaryId) return nav('/create/info');
+    setBusy(true);
+    const r = await draft.upload();
+    setBusy(false);
+    if (r.ok) return nav('/create/info');
+    if (r.code === 'REGION_NOT_SUPPORTED') return setOut(r.details?.fileIndexes?.[0] ?? 0);
+    return setCard(r.code);
+  };
+  const del = async (id) => {
+    const r = await draft.remove(id);
+    if (!r.ok) setCard(r.code);
+  };
+
+  if (draft.status === 'CREATING') return <Navigate to="/create/talk" replace />; // 이미 이야기 단계로 넘어간 일기
 
   const has = photos.length > 0;
   const label = (p, i) => `사진 ${i + 1}`;
-  const meta = (p) => `${p.at ? `${monthDayDot(p.at)}${p.timed === false ? '' : ` ${clockOf(p.at)}`}` : ''}${p.gu ? ` · ${p.gu === 'unknown' ? '위치 모름' : p.gu}` : ''}`.trim();
+  const meta = (p) => {
+    if (p.local) return ''; // 올리기 전에는 서버가 읽기 전이라 날짜·위치를 모른다
+    const when = p.at ? `${monthDayDot(p.at)}${p.timed ? ` ${clockOf(p.at)}` : ''}` : p.day ? mdDay(p.day) : '';
+    return `${when}${p.gu ? ` · ${p.gu === 'unknown' ? '위치 모름' : p.gu}` : ''}`.trim();
+  };
 
   const side = has ? (
     <>
@@ -92,7 +80,7 @@ export function CreatePhotos() {
         {photos.map((p, i) => (
           <figure key={p.id} className="v3-pgrid__i" style={{ transform: `rotate(${[-2, 2, 2, -3][i % 4]}deg)` }}>
             <div className="polaroid" style={{ '--s': 1 }}>
-              <div className="polaroid__photo" style={{ height: 96 }}><PhotoImg p={p} raw /></div>
+              <div className="polaroid__photo" style={{ height: 96 }}><PhotoImg p={p} /></div>
               <p className="polaroid__caption">{label(p, i)}</p>
             </div>
           </figure>
@@ -116,7 +104,7 @@ export function CreatePhotos() {
       side={side}
       foot={
         has ? (
-          <Button block={!desk} disabled={photos.length === 0} onClick={() => nav('/create/info')}>다음</Button>
+          <Button block={!desk} disabled={photos.length === 0 || busy} onClick={next}>{busy ? '사진을 올리는 중…' : '다음'}</Button>
         ) : (
           <Button block={!desk} variant="secondary" disabled>사진을 골라 주세요</Button>
         )
@@ -124,7 +112,7 @@ export function CreatePhotos() {
       overlay={
         <>
           {card && <ErrorCard code={card} onClose={() => setCard(null)} onAction={[() => { setCard(null); pick(); }]} />}
-          {s === 'out' && <OutOfArea onClose={() => nav('/create?s=selected')} onPick={pick} idx={1} p={photos[1]} />}
+          {out != null && photos[out] && <OutOfArea onClose={() => setOut(null)} onPick={() => { setReplaceId(photos[out].id); setTimeout(pickOne, 0); }} idx={out} p={photos[out]} />}
         </>
       }
     >
@@ -138,7 +126,6 @@ export function CreatePhotos() {
             </span>
             <p className="t-caption v3-desk-only">사진을 끌어다 놓거나 클릭해서 고르기</p>
             <Button small icon={assets.iconPlusCream} onClick={pick}>사진 고르기</Button>
-            <button type="button" className="v3-link t-caption" onClick={() => draft.addFiles(demoSet('selected'))}>예시 사진으로 둘러보기</button>
           </div>
           <div className="v3-mobile-only">
             <h2 className="v3-h2">오늘의 사진을<br />골라 주세요</h2>
@@ -153,17 +140,17 @@ export function CreatePhotos() {
           <ul className="v3-plist">
             {photos.map((p, i) => (
               <li key={p.id} className="v3-prow">
-                <span className="v3-prow__th"><PhotoImg p={p} raw /></span>
+                <span className="v3-prow__th"><PhotoImg p={p} /></span>
                 <span className="v3-prow__t">
                   <b className="t-caption-strong">{label(p, i)}</b>
                   <span className="t-caption">{meta(p) || ' '}</span>
                   <span className="v3-badges">
-                    {!p.gu && <i className="v3-badge v3-badge--bad">위치 입력 필요</i>}
-                    {!p.at && <i className="v3-badge v3-badge--bad">날짜 입력 필요</i>}
+                    {p.issues?.includes('LOCATION_REQUIRED') && <i className="v3-badge v3-badge--bad">위치 입력 필요</i>}
+                    {p.issues?.includes('DATE_REQUIRED') && <i className="v3-badge v3-badge--bad">날짜 입력 필요</i>}
                   </span>
                 </span>
                 <button type="button" aria-label={`${label(p, i)} 바꾸기`} onClick={() => { setReplaceId(p.id); setTimeout(pickOne, 0); }}><img src={assets.iconRefresh} alt="" /></button>
-                <button type="button" aria-label={`${label(p, i)} 지우기`} onClick={() => draft.remove(p.id)}>
+                <button type="button" aria-label={`${label(p, i)} 지우기`} onClick={() => del(p.id)}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>
                 </button>
               </li>
@@ -184,7 +171,7 @@ function OutOfArea({ onClose, onPick, p, idx }) {
       <h2 className="t-heading">이 사진은 넣을 수 없어요</h2>
       <p className="t-body">5개의 구 외에는 아직 불가능합니다</p>
       <div className="v3-prow v3-prow--flat">
-        <span className="v3-prow__th">{p && <PhotoImg p={p} raw />}</span>
+        <span className="v3-prow__th">{p && <PhotoImg p={p} />}</span>
         <span className="v3-prow__t"><b className="t-caption-strong">사진 {idx + 1}</b><span className="t-caption">사진 위치가 서비스 지역 밖이에요</span></span>
         <i className="v3-badge v3-badge--bad">지역 밖</i>
       </div>
@@ -199,20 +186,38 @@ function OutOfArea({ onClose, onPick, p, idx }) {
 export function CreateInfo() {
   const nav = useNavigate();
   const { draft } = useApp();
-  const s = useDemoLoader(['loc', 'locE', 'locU', 'date', 'mismatch']);
+  const s = usePreview();
+  const [card, setCard] = useState(null);
+  const tried = useRef(false);
   const todo = draft.nextTodo();
   const photos = draft.photos;
 
+  // 빠진 정보가 없으면 서버에 확정한다 → 시간순 정렬과 그림 변환이 시작된다
   useEffect(() => {
-    if (photos.length && !todo) {
-      draft.sort();
+    if (!photos.length || todo || tried.current) return;
+    tried.current = true;
+    (async () => {
+      if (draft.status === 'METADATA_PENDING') {
+        const r = await draft.confirm();
+        if (!r.ok) {
+          if (r.code === 'METADATA_INCOMPLETE' || r.code === 'DATE_MISMATCH') await draft.refresh();
+          tried.current = false;
+          return setCard(r.code);
+        }
+      }
       nav('/create/talk', { replace: true });
-    }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photos, todo]);
 
   if (photos.length === 0 && !s) return <Navigate to="/create" replace />;
-  if (!todo) return null;
+  if (!todo) {
+    return (
+      <Page title="새 일기" step={2} onBack={() => nav('/create')} overlay={card && <ErrorCard code={card} onClose={() => setCard(null)} />}>
+        <p className="t-caption v3-lead">사진을 정리하는 중이에요…</p>
+      </Page>
+    );
+  }
   const idx = photos.findIndex((x) => x.id === todo.p.id);
   if (todo.type === 'mismatch') return <Mismatch key={todo.p.id} p={todo.p} idx={idx} day={todo.day} />;
   return todo.type === 'gu' ? <AskLocation key={todo.p.id} p={todo.p} idx={idx} /> : <AskDate key={todo.p.id} p={todo.p} idx={idx} />;
@@ -223,7 +228,7 @@ const sidePhoto = (p, idx) => (
     <h2 className="t-heading">사진 {idx + 1}</h2>
     <div style={{ alignSelf: 'center', transform: 'rotate(-2deg)' }}>
       <div className="polaroid" style={{ '--s': 1.6 }}>
-        <div className="polaroid__photo"><PhotoImg p={p} raw /></div>
+        <div className="polaroid__photo"><PhotoImg p={p} /></div>
         <p className="polaroid__caption">사진 {idx + 1}</p>
       </div>
     </div>
@@ -237,10 +242,21 @@ function AskLocation({ p, idx }) {
   const [v, setV] = useState(s === 'locE' ? '해운대구' : '');
   const [bad, setBad] = useState(s === 'locE');
   const [unk, setUnk] = useState(s === 'locU');
+  const [busy, setBusy] = useState(false);
+  const [card, setCard] = useState(null);
+  const send = async (location) => {
+    if (busy) return;
+    setBusy(true);
+    const r = await draft.setMeta(p.id, { location });
+    setBusy(false);
+    if (r.ok) return;
+    if (r.code === 'REGION_NOT_SUPPORTED' || r.code === 'VALIDATION_FAILED') setBad(true);
+    else setCard(r.code);
+  };
   const submit = () => {
     const name = v.trim();
     if (!GUS.includes(name)) return setBad(true);
-    draft.set(p.id, { gu: name });
+    send({ district: name });
   };
   return (
     <Page
@@ -251,7 +267,8 @@ function AskLocation({ p, idx }) {
       dtitle="새 일기"
       step={2}
       side={sidePhoto(p, idx)}
-      foot={<Button block onClick={unk ? () => draft.set(p.id, { gu: 'unknown' }) : submit}>다음</Button>}
+      foot={<Button block disabled={busy} onClick={unk ? () => send({ unknown: true }) : submit}>다음</Button>}
+      overlay={card && <ErrorCard code={card} onClose={() => setCard(null)} />}
     >
       <h2 className="v3-h2">이 사진의 위치는 어디입니까?</h2>
       {unk ? (
@@ -281,14 +298,18 @@ function AskDate({ p, idx }) {
   const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const [date, setDate] = useState(iso);
   const [time, setTime] = useState('');
-  const submit = () => {
-    const [h, m] = time ? time.split(':').map(Number) : [12, 0];
-    const d = parseDay(date);
-    d.setHours(h, m, 0, 0);
-    draft.set(p.id, { at: d, timed: !!time });
+  const [busy, setBusy] = useState(false);
+  const [card, setCard] = useState(null);
+  const submit = async () => {
+    if (busy) return;
+    setBusy(true);
+    const r = await draft.setMeta(p.id, { date, ...(time ? { time } : {}) });
+    setBusy(false);
+    if (!r.ok) setCard(r.code);
   };
   return (
-    <Page title="빠진 정보 입력" right={`사진 ${idx + 1}`} dtitle="새 일기" onBack={() => nav('/create')} step={2} side={sidePhoto(p, idx)} foot={<Button block onClick={submit} disabled={!date}>다음</Button>}>
+    <Page title="빠진 정보 입력" right={`사진 ${idx + 1}`} dtitle="새 일기" onBack={() => nav('/create')} step={2} side={sidePhoto(p, idx)} foot={<Button block onClick={submit} disabled={!date || busy}>다음</Button>}
+      overlay={card && <ErrorCard code={card} onClose={() => setCard(null)} />}>
       <h2 className="v3-h2">이 사진은 언제 찍었나요?</h2>
       <Field label="날짜">{(id) => <Input id={id} type="date" value={date} onChange={(e) => setDate(e.target.value)} />}</Field>
       <Field label="시간 (선택)" hint="시간이 없으면 시간이 있는 사진 뒤에 놓여요">
@@ -302,13 +323,14 @@ function Mismatch({ p, idx, day }) {
   const nav = useNavigate();
   const { draft } = useApp();
   const [card, setCard] = useState(null);
-  const [pick, input] = useFilePicker((fs) => {
+  const [pick, input] = useFilePicker(async (fs) => {
     const f = fs[0];
     if (!OK_TYPES.includes(f.type)) return setCard('UNSUPPORTED_IMAGE_TYPE');
     if (f.size > MAX_BYTES) return setCard('FILE_TOO_LARGE');
-    draft.replace(p.id, fromFile(f));
+    const r = await draft.replace(p.id, f);
+    if (!r.ok) setCard(r.code);
   }, false);
-  const when = `${monthDayDot(p.at)} ${clockOf(p.at)}`;
+  const when = p.at ? `${monthDayDot(p.at)}${p.timed ? ` ${clockOf(p.at)}` : ''}` : p.day ? mdDay(p.day) : '';
   const [, m, d] = day.split('-');
   return (
     <Page
@@ -324,13 +346,13 @@ function Mismatch({ p, idx, day }) {
       <h2 className="v3-h2">다른 날 찍은 사진이 있어요</h2>
       <p className="t-body">일기 한 편에는 같은 날 사진만 담을 수 있어요. 이 일기의 날짜는 {Number(m)}월 {Number(d)}일이에요.</p>
       <div className="v3-prow v3-prow--flat">
-        <span className="v3-prow__th"><PhotoImg p={p} raw /></span>
+        <span className="v3-prow__th"><PhotoImg p={p} /></span>
         <span className="v3-prow__t"><b className="t-caption-strong">사진 {idx + 1}</b><span className="t-caption">{when}</span></span>
         <i className="v3-badge v3-badge--bad">날짜가 달라요</i>
       </div>
       <div className="v3-two">
         <Button variant="ghost" block onClick={pick}>사진 교체</Button>
-        <Button variant="ghost" block onClick={() => draft.remove(p.id)}>삭제</Button>
+        <Button variant="ghost" block onClick={async () => { const r = await draft.remove(p.id); if (!r.ok) setCard(r.code); }}>삭제</Button>
       </div>
       <p className="t-caption v3-muted">오전 5시 전에 찍은 사진은 전날로 계산해요. 11월 7일 새벽 3시 사진은 11월 6일 일기에 들어가요.</p>
     </Page>

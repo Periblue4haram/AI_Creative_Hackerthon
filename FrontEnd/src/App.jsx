@@ -14,12 +14,14 @@ import { useApp } from './v3/store.jsx';
 function RequireAuth({ children }) {
   const { auth } = useApp();
   const location = useLocation();
+  if (!auth.ready) return <div className="screen screen--cream" aria-busy="true" />; // 저장된 로그인을 확인하는 동안
   return auth.me ? children : <Navigate to="/start" replace state={{ from: location }} />;
 }
 /** 이미 로그인했다면 홈으로. (검수용 ?s= 미리보기는 그대로 보여 준다) */
 function GuestOnly({ children }) {
   const { auth } = useApp();
   const { search } = useLocation();
+  if (!auth.ready) return <div className="screen screen--cream" aria-busy="true" />;
   return auth.me && !search.includes('s=') ? <Navigate to="/" replace /> : children;
 }
 const A = (el) => <RequireAuth>{el}</RequireAuth>;

@@ -31,6 +31,10 @@ export default function Me({ initial = 'profile' }) {
   const [tab, setTab] = useState(initial);
   const [out, setOut] = useState(s === 'logout');
   const me = auth.me;
+  useEffect(() => {
+    diary.load(); // 쓴 일기 수와 처음 쓴 날을 서버 기록으로 채운다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const first = diary.entries.length ? diary.entries[diary.entries.length - 1].day : me?.joined;
 
   const profile = (
@@ -41,7 +45,7 @@ export default function Me({ initial = 'profile' }) {
         <Row k="지은이" v={me?.nick} />
         <Row k="이메일" v={me?.email} />
         <Row k="처음 쓴 날" v={first ? `${first.slice(0, 4)}년 ${Number(first.slice(5, 7))}월 ${Number(first.slice(8, 10))}일` : '-'} />
-        <Row k="쓴 일기" v={`${diary.entries.length}편`} />
+        <Row k="쓴 일기" v={`${diary.total}편`} />
         <Row k="펴낸 곳" v="SEOULMATE" />
       </dl>
       <Button block variant="ghost" onClick={() => nav('/me/edit')}>프로필 수정</Button>
@@ -60,7 +64,7 @@ export default function Me({ initial = 'profile' }) {
     </section>
   );
   const confirm = out && (
-    <Confirm icon="user" title="로그아웃할까요?" body="쓰던 일기는 그대로 남아 있어요." ok="로그아웃" onCancel={() => setOut(false)} onOk={() => { auth.logout(); nav('/start', { replace: true }); }} />
+    <Confirm icon="user" title="로그아웃할까요?" body="쓰던 일기는 그대로 남아 있어요." ok="로그아웃" onCancel={() => setOut(false)} onOk={async () => { await auth.logout(); nav('/start', { replace: true }); }} />
   );
 
   if (desk) {
@@ -154,7 +158,8 @@ export function MeEdit() {
   const [av, setAv] = useState(undefined); // undefined 유지 · null 기본 이미지 · 문자열 새 사진
   const [crop, setCrop] = useState(s === 'crop' ? assets.sceneSeongsu : null);
   const [card, setCard] = useState(null);
-  const [bad, setBad] = useState(false);
+  const [bad, setBad] = useState(null); // 닉네임 오류 문구
+  const [saving, setSaving] = useState(false);
   const [pick, input] = useFilePicker((fs) => {
     const f = fs[0];
     if (!OK_TYPES.includes(f.type)) return setCard('UNSUPPORTED_IMAGE_TYPE');
@@ -162,14 +167,20 @@ export function MeEdit() {
     setCrop(URL.createObjectURL(f));
   }, false);
   const shown = av === undefined ? db.avatar : av;
-  const save = () => {
+  const save = async () => {
     const n = nick.trim();
-    if (n.length < 2 || n.length > 30) return setBad(true);
-    auth.updateProfile(n, av);
-    nav('/me', { replace: true });
+    if (n.length < 2 || n.length > 30) return setBad('닉네임은 2~30자로 적어 주세요.');
+    if (saving) return;
+    setSaving(true);
+    const r = await auth.updateProfile(n, av);
+    setSaving(false);
+    if (r.ok) return nav('/me', { replace: true });
+    if (r.code === 'NICKNAME_TAKEN') return setBad('이미 쓰고 있는 닉네임이에요. 다른 닉네임을 적어 주세요.');
+    if (r.code === 'VALIDATION_FAILED') return setBad('닉네임은 2~30자로 적어 주세요.');
+    setCard(r.code);
   };
   return (
-    <Page title="프로필 수정" right={<button type="button" className="v3-done" onClick={save}>저장</button>} onBack={() => nav('/me')} tab={null} navActive="me" dtitle="프로필 수정" foot={<Button block className="v3-desk-only" onClick={save}>저장</Button>}
+    <Page title="프로필 수정" right={<button type="button" className="v3-done" onClick={save} disabled={saving}>저장</button>} onBack={() => nav('/me')} tab={null} navActive="me" dtitle="프로필 수정" foot={<Button block className="v3-desk-only" onClick={save} disabled={saving}>저장</Button>}
       overlay={<>{card && <ErrorCard code={card} onClose={() => setCard(null)} onAction={[() => { setCard(null); pick(); }]} />}{crop && <Cropper src={crop} onCancel={() => setCrop(null)} onDone={(u) => { setAv(u); setCrop(null); }} />}</>}>
       {input}
       <div className="v3-avatar-edit">
@@ -180,8 +191,8 @@ export function MeEdit() {
         </div>
         <p className="t-caption v3-muted">JPEG, PNG, WebP · 10MB 이하</p>
       </div>
-      <Field label="닉네임" error={bad ? '닉네임은 2~30자로 적어 주세요.' : null} hint="2~30자 · 다른 사람과 같아도 괜찮아요">
-        {(id, b) => <Input id={id} maxLength={30} invalid={b} value={nick} onChange={(e) => { setBad(false); setNick(e.target.value); }} />}
+      <Field label="닉네임" error={bad} hint="2~30자 · 다른 사람이 쓰는 닉네임은 쓸 수 없어요">
+        {(id, b) => <Input id={id} maxLength={30} invalid={b} value={nick} onChange={(e) => { setBad(null); setNick(e.target.value); }} />}
       </Field>
       <Field label="이메일" hint="이메일은 바꿀 수 없어요">{(id) => <Input id={id} value={auth.me?.email || ''} readOnly disabled />}</Field>
     </Page>
@@ -199,7 +210,6 @@ export function MeInfo() {
       <dl className="v3-kvs v3-kvs--card">
         <Row k="닉네임" v={me?.nick} />
         <Row k="이메일" v={me?.email} />
-        <Row k="로그인 방식" v={me?.google ? 'Google' : '이메일'} />
         <Row k="가입일" v={me?.joined ? `${me.joined.slice(0, 4)}년 ${Number(me.joined.slice(5, 7))}월 ${Number(me.joined.slice(8, 10))}일` : '-'} />
       </dl>
       <h3 className="t-body-strong">내 사진과 위치</h3>

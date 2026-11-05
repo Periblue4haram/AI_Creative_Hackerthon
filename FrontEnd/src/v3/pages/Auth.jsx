@@ -43,10 +43,11 @@ export function Start() {
   const { auth } = useApp();
   const desk = useDesktop();
   const s = usePreview();
-  const google = () => {
-    if (s === 'google') return;
-    auth.google();
-    nav('/');
+  const [card, setCard] = useState(s === 'google' ? 'INVALID_GOOGLE_TOKEN' : null);
+  const google = async () => {
+    const r = await auth.google();
+    if (r.ok) nav('/');
+    else setCard(r.code);
   };
   const body = (
     <>
@@ -58,7 +59,7 @@ export function Start() {
       </div>
       <p className="v3-center t-body">이미 계정이 있나요? <Link className="v3-link" to="/login">로그인</Link></p>
       <p className="v3-center t-caption v3-muted">계속하면 <Link className="v3-link" to="/privacy">개인정보처리방침</Link>에 동의하게 돼요</p>
-      {s === 'google' && <ErrorCard code="INVALID_GOOGLE_TOKEN" onClose={() => nav('/start')} onAction={[() => nav('/start'), () => nav('/login')]} />}
+      {card && <ErrorCard code={card} onClose={() => setCard(null)} onAction={[google, () => nav('/login')]} />}
     </>
   );
   if (desk) return <AuthShell>{body}</AuthShell>;
@@ -83,13 +84,15 @@ export function Signup() {
   const nav = useNavigate();
   const { auth } = useApp();
   const s = usePreview();
+  const [busy, setBusy] = useState(false);
   const [f, setF] = useState({ email: s === 'dup' ? 'user@example.com' : '', pw: '', nick: '', agree: s === 'dup' });
   const [err, setErr] = useState(s === 'dup' ? { email: '이미 가입한 이메일이에요. 로그인해 주세요.' } : {});
   const [card, setCard] = useState(s === 'sendfail' ? 'EMAIL_SEND_FAILED' : null);
   const set = (k) => (e) => setF({ ...f, [k]: k === 'agree' ? e.target.checked : e.target.value });
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e?.preventDefault();
+    if (busy) return;
     const er = {};
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email)) er.email = '이메일 형식을 확인해 주세요.';
     if (f.pw.length < 8) er.pw = '비밀번호는 8자 이상이에요.';
@@ -97,16 +100,21 @@ export function Signup() {
     if (!f.agree) er.agree = '개인정보처리방침에 동의해 주세요.';
     setErr(er);
     if (Object.keys(er).length) return;
-    const r = auth.signup(f.email.trim(), f.pw, f.nick.trim());
-    if (!r.ok) return setErr({ email: '이미 가입한 이메일이에요. 로그인해 주세요.' });
-    nav('/verify');
+    setBusy(true);
+    const r = await auth.signup(f.email.trim(), f.pw, f.nick.trim());
+    setBusy(false);
+    if (r.ok) return nav('/verify');
+    if (r.code === 'EMAIL_TAKEN') return setErr({ email: '이미 가입한 이메일이에요. 로그인해 주세요.' });
+    if (r.code === 'NICKNAME_TAKEN') return setErr({ nick: '이미 쓰고 있는 닉네임이에요. 다른 닉네임을 적어 주세요.' });
+    if (r.code === 'VALIDATION_FAILED') return setErr({ email: '입력한 내용을 다시 확인해 주세요.' });
+    return setCard(r.code); // EMAIL_SEND_FAILED · TOO_MANY_REQUESTS · 네트워크 오류 등
   };
 
   return (
     <AuthPage
       title="회원가입"
       onBack={() => nav('/start')}
-      overlay={card && <ErrorCard code={card} onClose={() => setCard(null)} onAction={[() => nav('/verify')]} />}
+      overlay={card && <ErrorCard code={card} onClose={() => setCard(null)} onAction={[() => (card === 'EMAIL_SEND_FAILED' ? nav('/verify') : setCard(null))]} />}
     >
       <form className="v3-form" onSubmit={submit} noValidate>
         <Field label="이메일" error={err.email}>
@@ -115,7 +123,7 @@ export function Signup() {
         <Field label="비밀번호" error={err.pw} hint="8자 이상">
           {(id, bad) => <Input id={id} type="password" placeholder="••••••••••" autoComplete="new-password" invalid={bad} value={f.pw} onChange={set('pw')} />}
         </Field>
-        <Field label="닉네임" error={err.nick} hint="2~30자 · 다른 사람과 같아도 괜찮아요">
+        <Field label="닉네임" error={err.nick} hint="2~30자 · 다른 사람이 쓰는 닉네임은 쓸 수 없어요">
           {(id, bad) => <Input id={id} placeholder="서울산책러" maxLength={30} invalid={bad} value={f.nick} onChange={set('nick')} />}
         </Field>
         <div className="v3-check">
@@ -127,9 +135,9 @@ export function Signup() {
           {err.agree && <p className="v3-error" role="alert">{err.agree}</p>}
         </div>
         <div className="v3-or"><span>또는</span></div>
-        <GoogleBtn onClick={() => { auth.google(); nav('/'); }} />
+        <GoogleBtn onClick={async () => { const r = await auth.google(); if (r.ok) nav('/'); else setCard(r.code); }} />
         <p className="v3-center t-caption v3-muted">가입하면 메일로 6자리 인증 코드를 보내요</p>
-        <Button block type="submit" onClick={submit}>가입하기</Button>
+        <Button block type="submit" disabled={busy} onClick={submit}>{busy ? '보내는 중…' : '가입하기'}</Button>
       </form>
     </AuthPage>
   );
@@ -143,8 +151,9 @@ export function Verify() {
   const s = usePreview();
   const [digits, setDigits] = useState(s === 'wrong' ? ['1', '2', '3', '4', '5', ''] : ['', '', '', '', '', '']);
   const [bad, setBad] = useState(s === 'wrong');
-  const [left, setLeft] = useState(600);
+  const [left, setLeft] = useState(s ? 600 : auth.secondsToExpire());
   const [wait, setWait] = useState(s ? 48 : auth.secondsToResend());
+  const [busy, setBusy] = useState(false);
   const [card, setCard] = useState(null);
   const refs = useRef([]);
   const email = auth.pending || (s ? 'user@example.com' : null);
@@ -174,15 +183,28 @@ export function Verify() {
     if (c && i < 5) refs.current[i + 1]?.focus();
   };
   const full = digits.every(Boolean);
-  const submit = () => {
-    if (auth.verify(digits.join(''))) nav('/');
-    else setBad(true);
+  const submit = async () => {
+    if (busy) return;
+    setBusy(true);
+    const r = await auth.verify(digits.join(''));
+    setBusy(false);
+    if (r.ok) return nav('/', { replace: true });
+    if (r.code === 'INVALID_VERIFICATION_CODE' || r.code === 'VALIDATION_FAILED') return setBad(true);
+    setCard(r.code);
   };
-  const resend = () => {
+  const resend = async () => {
     if (wait > 0) return setCard('TOO_MANY_REQUESTS');
-    const r = auth.resend();
-    if (r.ok) setWait(60);
-    else setCard('TOO_MANY_REQUESTS');
+    const r = await auth.resend();
+    if (r.ok) {
+      setWait(60);
+      setLeft(600);
+      setBad(false);
+      setDigits(['', '', '', '', '', '']);
+      refs.current[0]?.focus();
+      return;
+    }
+    if (r.code === 'TOO_MANY_REQUESTS') setWait(r.details?.retryAfterSeconds ?? auth.secondsToResend());
+    setCard(r.code);
   };
 
   return (
@@ -190,7 +212,7 @@ export function Verify() {
       title="이메일 인증"
       onBack={() => nav('/signup')}
       overlay={card && <ErrorCard code={card} onClose={() => setCard(null)} />}
-      foot={<Button block disabled={!full} onClick={submit}>인증하고 시작하기</Button>}
+      foot={<Button block disabled={!full || busy} onClick={submit}>인증하고 시작하기</Button>}
     >
       <h2 className="v3-h2">메일로 받은 코드를<br />입력해 주세요</h2>
       <p className="v3-sub v3-sub--left">{email}으로 6자리 코드를 보냈어요.</p>
@@ -219,7 +241,6 @@ export function Verify() {
         <span className="t-caption">메일이 오지 않았나요?</span>
         <button type="button" className="v3-link t-caption" onClick={resend}>다시 보내기{wait > 0 ? ` (${wait}초 후)` : ''}</button>
       </div>
-      <p className="v3-hint">데모: 000000 은 틀린 코드로 처리돼요. 그 밖의 6자리는 통과해요.</p>
     </AuthPage>
   );
 }
@@ -232,18 +253,23 @@ export function Login() {
   const [f, setF] = useState({ email: s === 'wrong' ? 'user@example.com' : '', pw: s === 'wrong' ? 'wrongpass' : '' });
   const [bad, setBad] = useState(s === 'wrong');
   const [card, setCard] = useState(null);
-  const submit = (e) => {
+  const [busy, setBusy] = useState(false);
+  const submit = async (e) => {
     e?.preventDefault();
-    const r = auth.login(f.email.trim(), f.pw);
-    if (r.ok) return nav('/');
+    if (busy) return;
+    setBusy(true);
+    const r = await auth.login(f.email.trim(), f.pw);
+    setBusy(false);
+    if (r.ok) return nav('/', { replace: true });
     if (r.code === 'EMAIL_NOT_VERIFIED') return setCard('EMAIL_NOT_VERIFIED');
-    setBad(true);
+    if (r.code === 'INVALID_CREDENTIALS' || r.code === 'VALIDATION_FAILED') return setBad(true);
+    setCard(r.code);
   };
   return (
     <AuthPage
       title="로그인"
       onBack={() => nav('/start')}
-      overlay={card && <ErrorCard code={card} onClose={() => setCard(null)} onAction={[() => nav('/verify')]} />}
+      overlay={card && <ErrorCard code={card} onClose={() => setCard(null)} onAction={[() => (card === 'EMAIL_NOT_VERIFIED' ? nav('/verify') : setCard(null))]} />}
     >
       <form className="v3-form" onSubmit={submit} noValidate>
         <h2 className="v3-h2">다시 만나서 반가워요</h2>
@@ -254,11 +280,10 @@ export function Login() {
         <Field label="비밀번호" error={bad ? '이메일 또는 비밀번호가 맞지 않아요.' : null}>
           {(id, b) => <Input id={id} type="password" placeholder="••••••••" autoComplete="current-password" invalid={b} value={f.pw} onChange={(e) => { setBad(false); setF({ ...f, pw: e.target.value }); }} />}
         </Field>
-        <Button block type="submit" onClick={submit}>로그인</Button>
+        <Button block type="submit" disabled={busy} onClick={submit}>{busy ? '로그인 중…' : '로그인'}</Button>
         <div className="v3-or"><span>또는</span></div>
-        <GoogleBtn onClick={() => { auth.google(); nav('/'); }} />
+        <GoogleBtn onClick={async () => { const r = await auth.google(); if (r.ok) nav('/'); else setCard(r.code); }} />
         <p className="v3-center t-body">계정이 없나요? <Link className="v3-link" to="/signup">회원가입</Link></p>
-        <p className="v3-hint v3-center">데모 계정: user@example.com / password123</p>
       </form>
     </AuthPage>
   );
