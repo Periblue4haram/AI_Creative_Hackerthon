@@ -131,7 +131,7 @@ public class CommunityService {
             queryVector = EmbeddingRepository.normalize(ai.embedQuery(query));
         } catch (AiUnavailableException e) {
             log.warn("검색어 임베딩 실패: {}", e.getMessage());
-            throw new ApiException(ErrorCode.AI_UNAVAILABLE);
+            throw new ApiException(ErrorCode.SEARCH_AI_UNAVAILABLE);
         }
         record Scored(Long pageId, double similarity) {}
         List<Long> pageIds = embeddings
@@ -152,7 +152,7 @@ public class CommunityService {
         Map<Long, Diary> diariesById = diaries.findAllById(pagesById.values().stream().map(p -> p.diaryId).distinct().toList())
                 .stream()
                 .collect(Collectors.toMap(d -> d.id, Function.identity()));
-        Map<Long, String> nicknames = nicknames(diariesById.values());
+        Map<Long, Author> authors = authors(diariesById.values());
         Map<Long, PublicPage> publicPages = toPublicPages(userId, pagesById.values(), diariesById).stream()
                 .collect(Collectors.toMap(PublicPage::id, Function.identity()));
 
@@ -161,7 +161,7 @@ public class CommunityService {
             PublicPage page = publicPages.get(pageId);
             if (page != null) {
                 Diary diary = diariesById.get(page.diaryId());
-                items.add(new SearchItem(new Author(nicknames.get(diary.userId)), page));
+                items.add(new SearchItem(authors.get(diary.userId), page));
             }
         }
         return new SearchResponse(items);
@@ -246,7 +246,7 @@ public class CommunityService {
                 .toList();
         Map<Long, List<PublicPage>> pagesByDiary = toPublicPages(userId, candidates, diariesById).stream()
                 .collect(Collectors.groupingBy(PublicPage::diaryId));
-        Map<Long, String> nicknames = nicknames(diariesById.values());
+        Map<Long, Author> authors = authors(diariesById.values());
 
         List<PublicDiary> result = new ArrayList<>();
         for (Long diaryId : diaryIds) {
@@ -255,7 +255,7 @@ public class CommunityService {
                 Diary diary = diariesById.get(diaryId);
                 result.add(new PublicDiary(
                         diaryId,
-                        new Author(nicknames.get(diary.userId)),
+                        authors.get(diary.userId),
                         diary.logicalDate,
                         Times.offset(diary.publishedAt),
                         visible));
@@ -317,9 +317,14 @@ public class CommunityService {
         return result;
     }
 
-    private Map<Long, String> nicknames(Collection<Diary> list) {
+    /** 닉네임은 중복될 수 있으므로 작성자 구분은 닉네임이 아니라 일기 단위로 한다. */
+    private Map<Long, Author> authors(Collection<Diary> list) {
         return users.findAllById(list.stream().map(d -> d.userId).distinct().toList()).stream()
-                .collect(Collectors.toMap(u -> u.id, (User u) -> u.nickname));
+                .collect(Collectors.toMap(u -> u.id, (User u) -> new Author(
+                        u.nickname,
+                        u.profileImagePath == null
+                                ? null
+                                : urls.signedUserImageUrl(ImageUrls.UserImage.PROFILE, u.id, u.profileImageVersion))));
     }
 
     private static double dot(float[] query, StoredEmbedding stored) {

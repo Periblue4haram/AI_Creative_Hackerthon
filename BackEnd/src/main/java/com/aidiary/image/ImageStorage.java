@@ -24,7 +24,15 @@ public class ImageStorage {
 
     /** 저장한 파일의 상대 경로를 돌려준다. 파일 이름은 사용자 입력을 쓰지 않는다. */
     public String write(long diaryId, long pageId, String extension, byte[] bytes) {
-        String relative = diaryId + "/" + pageId + "/" + UUID.randomUUID() + "." + extension;
+        return writeRelative(diaryId + "/" + pageId + "/" + UUID.randomUUID() + "." + extension, bytes);
+    }
+
+    /** 프로필 사진과 얼굴 데이터처럼 일기와 무관한 사용자 파일. users/{userId}/{folder}/ 아래에 둔다. */
+    public String writeUserFile(long userId, String folder, String extension, byte[] bytes) {
+        return writeRelative("users/" + userId + "/" + folder + "/" + UUID.randomUUID() + "." + extension, bytes);
+    }
+
+    private String writeRelative(String relative, byte[] bytes) {
         Path target = resolve(relative);
         try {
             Files.createDirectories(target.getParent());

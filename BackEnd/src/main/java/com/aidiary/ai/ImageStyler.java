@@ -5,5 +5,6 @@ public interface ImageStyler {
 
     record GeneratedImage(byte[] bytes, String contentType) {}
 
-    GeneratedImage toAnimeStyle(byte[] jpegPhoto);
+    /** faceReference가 있으면 사진 속 주인공을 그 얼굴과 닮게 그린다. 없으면 null. */
+    GeneratedImage toAnimeStyle(byte[] jpegPhoto, byte[] faceReference);
 }

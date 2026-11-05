@@ -84,6 +84,7 @@ public class DiaryMapper {
                     diary.logicalDate,
                     diary.visibility,
                     list.size(),
+                    list.stream().map(p -> p.region).filter(Objects::nonNull).distinct().toList(),
                     first == null ? null : displayUrl(first, imagesByPage.getOrDefault(first.id, List.of())),
                     first == null ? null : preview(first.content),
                     Times.offset(diary.completedAt)));

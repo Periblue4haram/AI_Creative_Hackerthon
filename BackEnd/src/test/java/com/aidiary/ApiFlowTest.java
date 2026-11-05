@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNotNull;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -94,7 +96,7 @@ class ApiFlowTest {
     void setUp() {
         jdbc.sql("DELETE FROM users").update();
         reset(ai, styler, geo, mail, google);
-        when(styler.toAnimeStyle(any())).thenReturn(new GeneratedImage(new byte[] {1, 2, 3}, "image/png"));
+        when(styler.toAnimeStyle(any(), any())).thenReturn(new GeneratedImage(new byte[] {1, 2, 3}, "image/png"));
         when(ai.firstQuestion(any(), anyString())).thenReturn("첫 질문");
         when(ai.nextQuestion(any(), anyString(), any())).thenReturn(new ChatReply("다음 질문", 100));
         when(ai.writeDiary(any(), anyString(), any())).thenReturn("오늘의 일기");
@@ -104,7 +106,7 @@ class ApiFlowTest {
 
     @Test
     void signupRequiresEmailVerificationBeforeLogin() throws Exception {
-        send(post("/api/v1/auth/signup"), null, Map.of("email", "a@example.com", "password", "password123", "nickname", "철수"))
+        send(post("/api/v1/auth/signup"), null, Map.of("email", "a@example.com", "password", "password123", "nickname", "철수", "privacyAgreed", true))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.verificationRequired").value(true))
                 .andExpect(jsonPath("$.accessToken").doesNotExist());
@@ -128,7 +130,7 @@ class ApiFlowTest {
 
     @Test
     void verificationCodeBlockedAfterFiveFailures() throws Exception {
-        send(post("/api/v1/auth/signup"), null, Map.of("email", "b@example.com", "password", "password123", "nickname", "영희"));
+        send(post("/api/v1/auth/signup"), null, Map.of("email", "b@example.com", "password", "password123", "nickname", "영희", "privacyAgreed", true));
         String code = sentCode("b@example.com");
         String wrong = code.equals("000000") ? "111111" : "000000";
 
@@ -142,7 +144,7 @@ class ApiFlowTest {
 
     @Test
     void resendIsLimitedAndHidesUnknownEmails() throws Exception {
-        send(post("/api/v1/auth/signup"), null, Map.of("email", "c@example.com", "password", "password123", "nickname", "민수"));
+        send(post("/api/v1/auth/signup"), null, Map.of("email", "c@example.com", "password", "password123", "nickname", "민수", "privacyAgreed", true));
 
         send(post("/api/v1/auth/email/resend"), null, Map.of("email", "c@example.com"))
                 .andExpect(status().isTooManyRequests())
@@ -155,16 +157,16 @@ class ApiFlowTest {
     void verifiedEmailCannotSignUpAgainButUnverifiedIsOverwritten() throws Exception {
         String token = newUser();
         String email = read(send(get("/api/v1/me"), token, null)).path("email").asString();
-        send(post("/api/v1/auth/signup"), null, Map.of("email", email, "password", "password123", "nickname", "다른이름"))
+        send(post("/api/v1/auth/signup"), null, Map.of("email", email, "password", "password123", "nickname", "다른이름", "privacyAgreed", true))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("EMAIL_TAKEN"));
 
         // 다른 사람이 먼저 가입한 미인증 계정은 60초 뒤 실제 메일 주인이 덮어쓸 수 있다
-        send(post("/api/v1/auth/signup"), null, Map.of("email", "f@example.com", "password", "attacker-pass", "nickname", "선점자"));
-        send(post("/api/v1/auth/signup"), null, Map.of("email", "f@example.com", "password", "owner-password", "nickname", "주인"))
+        send(post("/api/v1/auth/signup"), null, Map.of("email", "f@example.com", "password", "attacker-pass", "nickname", "선점자", "privacyAgreed", true));
+        send(post("/api/v1/auth/signup"), null, Map.of("email", "f@example.com", "password", "owner-password", "nickname", "주인", "privacyAgreed", true))
                 .andExpect(status().isTooManyRequests());
         jdbc.sql("UPDATE email_verifications SET last_sent_at = last_sent_at - INTERVAL 2 MINUTE").update();
-        send(post("/api/v1/auth/signup"), null, Map.of("email", "f@example.com", "password", "owner-password", "nickname", "주인"))
+        send(post("/api/v1/auth/signup"), null, Map.of("email", "f@example.com", "password", "owner-password", "nickname", "주인", "privacyAgreed", true))
                 .andExpect(status().isCreated());
 
         send(post("/api/v1/auth/email/verify"), null, Map.of("email", "f@example.com", "code", sentCode("f@example.com")))
@@ -177,7 +179,7 @@ class ApiFlowTest {
 
     @Test
     void refreshRotatesTokenAndLogoutRevokes() throws Exception {
-        send(post("/api/v1/auth/signup"), null, Map.of("email", "d@example.com", "password", "password123", "nickname", "지수"));
+        send(post("/api/v1/auth/signup"), null, Map.of("email", "d@example.com", "password", "password123", "nickname", "지수", "privacyAgreed", true));
         JsonNode tokens = read(send(post("/api/v1/auth/email/verify"), null, Map.of("email", "d@example.com", "code", sentCode("d@example.com"))));
         String first = tokens.path("refreshToken").asString();
 
@@ -192,7 +194,7 @@ class ApiFlowTest {
 
     @Test
     void googleLoginLinksAccountAndDropsUnverifiedPassword() throws Exception {
-        send(post("/api/v1/auth/signup"), null, Map.of("email", "e@example.com", "password", "password123", "nickname", "수상한사람"));
+        send(post("/api/v1/auth/signup"), null, Map.of("email", "e@example.com", "password", "password123", "nickname", "수상한사람", "privacyAgreed", true));
         when(google.verify("id-token")).thenReturn(new GoogleUser("sub-1", "e@example.com"));
 
         send(post("/api/v1/auth/google"), null, Map.of("idToken", "id-token"))
@@ -370,11 +372,11 @@ class ApiFlowTest {
     @Test
     void conversionRetriesOnceThenUserChoosesOriginal() throws Exception {
         String token = newUser();
-        when(styler.toAnimeStyle(any())).thenThrow(new AiUnavailableException("실패"));
+        when(styler.toAnimeStyle(any(), any())).thenThrow(new AiUnavailableException("실패"));
         long diaryId = createDiary(token, List.of("마포구"));
         long pageId = pageIds(token, diaryId).getFirst();
 
-        Mockito.verify(styler, Mockito.times(2)).toAnimeStyle(any());
+        Mockito.verify(styler, Mockito.times(2)).toAnimeStyle(any(), any());
         send(get("/api/v1/diaries/" + diaryId), token, null)
                 .andExpect(jsonPath("$.pages[0].imageStatus").value("FAILED"))
                 .andExpect(jsonPath("$.pages[0].convertedImageUrl").doesNotExist());
@@ -417,7 +419,7 @@ class ApiFlowTest {
         long diaryId = createDiary(token, List.of("마포구"));
         long pageId = pageIds(token, diaryId).getFirst();
 
-        when(styler.toAnimeStyle(any())).thenThrow(new AiUnavailableException("실패"));
+        when(styler.toAnimeStyle(any(), any())).thenThrow(new AiUnavailableException("실패"));
         send(post("/api/v1/diary-pages/" + pageId + "/image/regenerate"), token, null).andExpect(status().isAccepted());
 
         send(get("/api/v1/diaries/" + diaryId), token, null)
@@ -692,6 +694,142 @@ class ApiFlowTest {
         assertThat(embeddingCount()).isEqualTo(1);
     }
 
+    // ---------- 프론트엔드 화면(scrapbook-ui-v3)에서 추가된 API ----------
+
+    @Test
+    void signupNeedsPrivacyConsentAndAllowsDuplicateNicknames() throws Exception {
+        send(post("/api/v1/auth/signup"), null, Map.of("email", "p1@example.com", "password", "password123", "nickname", "같은이름"))
+                .andExpect(status().isBadRequest());
+        send(post("/api/v1/auth/signup"), null, Map.of(
+                        "email", "p1@example.com", "password", "password123", "nickname", "같은이름", "privacyAgreed", false))
+                .andExpect(status().isBadRequest());
+
+        send(post("/api/v1/auth/signup"), null, Map.of(
+                        "email", "p1@example.com", "password", "password123", "nickname", "같은이름", "privacyAgreed", true))
+                .andExpect(status().isCreated());
+        send(post("/api/v1/auth/signup"), null, Map.of(
+                        "email", "p2@example.com", "password", "password123", "nickname", "같은이름", "privacyAgreed", true))
+                .andExpect(status().isCreated());
+        String token = read(send(post("/api/v1/auth/email/verify"), null, Map.of("email", "p2@example.com", "code", sentCode("p2@example.com"))))
+                .path("accessToken").asString();
+
+        send(get("/api/v1/me"), token, null)
+                .andExpect(jsonPath("$.nickname").value("같은이름"))
+                .andExpect(jsonPath("$.privacyAgreedAt").exists());
+        String other = newUser();
+        send(patch("/api/v1/me"), other, Map.of("nickname", "같은이름")).andExpect(status().isOk());
+    }
+
+    @Test
+    void meShowsLoginMethodDiaryCountAndFirstDiaryDate() throws Exception {
+        String token = newUser();
+        send(get("/api/v1/me"), token, null)
+                .andExpect(jsonPath("$.loginMethod").value("EMAIL"))
+                .andExpect(jsonPath("$.diaryCount").value(0))
+                .andExpect(jsonPath("$.firstDiaryDate").doesNotExist())
+                .andExpect(jsonPath("$.profileImageUrl").doesNotExist());
+
+        publish(token, List.of("마포구"), "2026-10-28");
+        publish(token, List.of("종로구"), DATE);
+        send(get("/api/v1/me"), token, null)
+                .andExpect(jsonPath("$.diaryCount").value(2))
+                .andExpect(jsonPath("$.firstDiaryDate").value("2026-10-28"));
+    }
+
+    @Test
+    void profileImageCanBeSetShownToOthersAndReset() throws Exception {
+        String token = newUser();
+        String viewer = newUser();
+        MockMultipartHttpServletRequestBuilder upload = multipart(HttpMethod.PUT, "/api/v1/me/profile-image");
+        upload.file(new MockMultipartFile("image", "me.png", "image/png", TestPhotos.plainJpeg(800, 600)));
+        String url = read(mvc.perform(upload.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)).andExpect(status().isOk()))
+                .path("profileImageUrl").asString();
+        String path = url.replace("http://localhost", "");
+        mvc.perform(get(path)).andExpect(status().isOk());
+
+        long diaryId = publish(token, List.of("마포구"), DATE);
+        send(get("/api/v1/community/diaries/" + diaryId), viewer, null)
+                .andExpect(jsonPath("$.author.profileImageUrl").exists());
+
+        send(delete("/api/v1/me/profile-image"), token, null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.profileImageUrl").doesNotExist());
+        mvc.perform(get(path)).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void faceDataIsRegisteredUsedForConversionToggledAndDeleted() throws Exception {
+        String token = newUser();
+        send(get("/api/v1/me/face-data"), token, null).andExpect(jsonPath("$.registered").value(false));
+        send(patch("/api/v1/me/face-data"), token, Map.of("enabled", false)).andExpect(status().isNotFound());
+
+        MockMultipartHttpServletRequestBuilder register = multipart("/api/v1/me/face-data");
+        register.file(new MockMultipartFile("image", "face.jpg", "image/jpeg", TestPhotos.plainJpeg()));
+        mvc.perform(register.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.registered").value(true))
+                .andExpect(jsonPath("$.enabled").value(true))
+                .andExpect(jsonPath("$.imageUrl").exists());
+
+        long pageId = pageIds(token, createDiary(token, List.of("마포구"))).getFirst();
+        verify(styler).toAnimeStyle(any(), isNotNull());
+
+        send(patch("/api/v1/me/face-data"), token, Map.of("enabled", false))
+                .andExpect(jsonPath("$.enabled").value(false));
+        send(post("/api/v1/diary-pages/" + pageId + "/image/regenerate"), token, null).andExpect(status().isAccepted());
+        verify(styler).toAnimeStyle(any(), isNull());
+
+        send(delete("/api/v1/me/face-data"), token, null).andExpect(status().isNoContent());
+        send(get("/api/v1/me/face-data"), token, null).andExpect(jsonPath("$.registered").value(false));
+    }
+
+    @Test
+    void diarySummaryListsRegionsInPageOrder() throws Exception {
+        String token = newUser();
+        publish(token, List.of("마포구", "종로구", "마포구"), DATE);
+        send(get("/api/v1/me/diaries"), token, null)
+                .andExpect(jsonPath("$.items[0].regions.length()").value(2))
+                .andExpect(jsonPath("$.items[0].regions[0]").value("MAPO"))
+                .andExpect(jsonPath("$.items[0].regions[1]").value("JONGNO"));
+    }
+
+    @Test
+    void diaryAndPageVisibilityAreSavedTogether() throws Exception {
+        String token = newUser();
+        String viewer = newUser();
+        long diaryId = publish(token, List.of("마포구", "마포구"), DATE);
+        List<Long> pages = pageIds(token, diaryId);
+
+        send(patch("/api/v1/diaries/" + diaryId), token, Map.of(
+                        "visibility", "PUBLIC",
+                        "pages", List.of(
+                                Map.of("id", pages.get(0), "visibility", "PRIVATE"),
+                                Map.of("id", pages.get(1), "visibility", "PHOTO_HIDDEN"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pages[0].visibility").value("PRIVATE"))
+                .andExpect(jsonPath("$.pages[1].visibility").value("PHOTO_HIDDEN"));
+        send(get("/api/v1/community/diaries/" + diaryId), viewer, null)
+                .andExpect(jsonPath("$.pages.length()").value(1))
+                .andExpect(jsonPath("$.pages[0].photoHidden").value(true));
+
+        long unknownDiary = createDiary(token, List.of("UNKNOWN"));
+        List<Long> unknownPages = pageIds(token, unknownDiary);
+        finish(token, unknownDiary, "PRIVATE", "PRIVATE");
+        send(patch("/api/v1/diaries/" + unknownDiary), token, Map.of(
+                        "pages", List.of(Map.of("id", unknownPages.getFirst(), "visibility", "PUBLIC"))))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value("PAGE_NOT_SHAREABLE"));
+    }
+
+    @Test
+    void searchFailureHasItsOwnErrorCode() throws Exception {
+        String token = newUser();
+        when(ai.embedQuery(anyString())).thenThrow(new AiUnavailableException("실패"));
+        send(get("/api/v1/community/search").param("q", "카페"), token, null)
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("SEARCH_AI_UNAVAILABLE"));
+    }
+
     // ---------- 도우미 ----------
 
     private long embeddingCount() {
@@ -701,7 +839,7 @@ class ApiFlowTest {
     private String newUser() throws Exception {
         String email = "user" + (++userCounter) + "-" + System.nanoTime() + "@example.com";
         send(post("/api/v1/auth/signup"), null, Map.of(
-                        "email", email, "password", "password123", "nickname", "유저" + System.nanoTime() % 100000000L))
+                        "email", email, "password", "password123", "nickname", "유저" + (System.nanoTime() % 100000000L), "privacyAgreed", true))
                 .andExpect(status().isCreated());
         JsonNode tokens = read(send(post("/api/v1/auth/email/verify"), null, Map.of("email", email, "code", sentCode(email))));
         return tokens.path("accessToken").asString();

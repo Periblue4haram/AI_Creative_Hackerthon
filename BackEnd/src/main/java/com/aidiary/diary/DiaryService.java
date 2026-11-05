@@ -361,8 +361,35 @@ public class DiaryService {
             if (request.visibility() != null) {
                 applyDiaryVisibility(diary, request.visibility(), Times.now());
             }
+            if (request.pages() != null) {
+                applyPageVisibilities(diaryId, request.pages());
+            }
         });
         return mapper.toOwnerDiary(diaries.findById(diaryId).orElseThrow());
+    }
+
+    /** 하나라도 공개할 수 없는 페이지가 있으면 아무것도 바꾸지 않는다. */
+    private void applyPageVisibilities(Long diaryId, List<DiaryDtos.PageVisibilityUpdate> updates) {
+        Map<Long, DiaryPage> byId = access.pagesOf(diaryId).stream()
+                .collect(Collectors.toMap(p -> p.id, Function.identity()));
+        List<Long> notShareable = new ArrayList<>();
+        for (DiaryDtos.PageVisibilityUpdate update : updates) {
+            DiaryPage page = byId.get(update.id());
+            if (page == null) {
+                throw new ApiException(ErrorCode.VALIDATION_FAILED);
+            }
+            if (update.visibility() != PageVisibility.PRIVATE) {
+                if (!page.isShareable()) {
+                    notShareable.add(page.id);
+                } else if (page.reportBlockedAt != null) {
+                    throw new ApiException(ErrorCode.PAGE_REPORT_BLOCKED);
+                }
+            }
+        }
+        if (!notShareable.isEmpty()) {
+            throw new ApiException(ErrorCode.PAGE_NOT_SHAREABLE, Map.of("pageIds", notShareable));
+        }
+        updates.forEach(u -> byId.get(u.id()).visibility = u.visibility());
     }
 
     public OwnerPage updatePage(Long userId, Long pageId, UpdatePageRequest request) {
