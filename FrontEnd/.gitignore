@@ -1,0 +1,6 @@
+node_modules
+dist
+.DS_Store
+# Figma에서 내려받은 에셋 (npm run assets 로 다시 생성)
+src/assets/*
+!src/assets/.gitkeep

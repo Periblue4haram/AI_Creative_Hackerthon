@@ -1,0 +1,599 @@
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--ink);
+  background: var(--cream);
+  -webkit-font-smoothing: antialiased;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+input {
+  font: inherit;
+  color: inherit;
+}
+img {
+  display: block;
+  max-width: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* ───────── 앱 셸: 390px 폭 기준. 큰 화면에서는 폰 프레임처럼 가운데에 놓는다 ───────── */
+.app {
+  position: relative;
+  width: 100%;
+  max-width: 390px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  background: var(--cream);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+@media (min-width: 481px) {
+  body {
+    display: grid;
+    place-items: center;
+    min-height: 100vh;
+    padding: 24px 0;
+    background: #d9cbb6;
+  }
+  .app {
+    height: 844px;
+    min-height: 0;
+    border-radius: 32px;
+    box-shadow: 0 24px 60px rgba(51, 36, 23, 0.35);
+  }
+}
+
+.screen {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.screen--cream {
+  background: var(--cream);
+}
+.screen--desk {
+  background: var(--point);
+}
+
+.fill-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* ───────── 타이포 (Figma text styles) ───────── */
+.t-title {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 32px;
+  letter-spacing: -0.3px;
+}
+.t-heading {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 26px;
+}
+.t-body {
+  font-size: 15px;
+  line-height: 24px;
+}
+.t-body-strong {
+  font-size: 15px;
+  line-height: 24px;
+  font-weight: 700;
+}
+.t-label {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+}
+.t-caption {
+  font-size: 13px;
+  line-height: 20px;
+}
+.t-caption-strong {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+}
+.t-date {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 16px;
+  letter-spacing: 0.5px;
+}
+.t-stamp {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 14px;
+  letter-spacing: 1.5px;
+}
+.t-hand-note {
+  font-family: var(--font-hand);
+  font-size: 19px;
+  line-height: 24px;
+}
+.t-hand-small {
+  font-family: var(--font-hand);
+  font-size: 16px;
+  line-height: 20px;
+}
+.t-hand-title {
+  font-family: var(--font-hand);
+  font-weight: 700;
+  font-size: 26px;
+  line-height: 30px;
+}
+
+/* ───────── 상태 표시줄 (디자인용 장식: 폰 프레임일 때만 보인다) ───────── */
+.status-bar {
+  position: relative;
+  flex: none;
+  height: 47px;
+  display: none;
+}
+.status-bar__time {
+  position: absolute;
+  left: 34px;
+  top: 14px;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 24px;
+}
+.status-bar__ind {
+  position: absolute;
+  left: 290px;
+  top: 18px;
+  width: 68px;
+  height: 12px;
+}
+@media (min-width: 481px) {
+  .status-bar {
+    display: block;
+  }
+}
+.safe-top {
+  flex: none;
+  height: env(safe-area-inset-top, 0px);
+}
+@media (min-width: 481px) {
+  .safe-top {
+    display: none;
+  }
+}
+
+/* ───────── 앱 바 ───────── */
+.app-bar {
+  position: relative;
+  flex: none;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+}
+.app-bar__back {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.app-bar__back img {
+  width: 24px;
+  height: 24px;
+}
+.app-bar__title {
+  flex: 1;
+  min-width: 0;
+}
+.app-bar__right {
+  flex: none;
+}
+.app-bar__pad {
+  flex: none;
+  width: 8px;
+  height: 8px;
+}
+
+/* ───────── 버튼 / 칩 ───────── */
+.btn {
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 24px;
+  border-radius: 999px;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.btn img {
+  width: 24px;
+  height: 24px;
+}
+.btn--primary {
+  background: var(--ink);
+  color: var(--cream);
+  filter: var(--shadow-soft);
+}
+.btn--secondary {
+  background: var(--paper);
+  color: var(--ink);
+}
+.btn--ghost {
+  border: 1.5px solid var(--point-strong);
+  color: var(--ink);
+}
+.btn--block {
+  width: 100%;
+}
+.btn--sm {
+  height: 44px;
+  padding: 0 14px;
+}
+.btn:disabled {
+  opacity: 0.4;
+  filter: none;
+}
+
+.chip {
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--point-strong);
+  background: var(--cream);
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.chip--on {
+  background: var(--ink);
+  color: var(--cream);
+}
+.chip--tight {
+  padding: 0 12px;
+}
+
+/* ───────── 마스킹 테이프 ───────── */
+.tape {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* ───────── 폴라로이드 (--s: 크기 배율) ───────── */
+.polaroid {
+  --s: 1;
+  position: relative;
+  width: calc(150px * var(--s));
+  display: flex;
+  flex-direction: column;
+  gap: calc(8px * var(--s));
+  padding: calc(10px * var(--s)) calc(10px * var(--s)) calc(12px * var(--s));
+  border-radius: calc(2px * var(--s));
+  background: var(--polaroid);
+  filter: var(--shadow-paper);
+}
+.polaroid__photo {
+  position: relative;
+  width: 100%;
+  height: calc(104px * var(--s));
+  overflow: hidden;
+}
+.polaroid__photo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.polaroid__caption {
+  font-family: var(--font-hand);
+  font-size: calc(16px * var(--s));
+  line-height: calc(20px * var(--s));
+  text-align: center;
+  min-height: calc(20px * var(--s));
+}
+
+/* ───────── 스탬프 (--st: 한 변 px) ───────── */
+.stamp {
+  position: relative;
+  width: var(--st);
+  height: var(--st);
+  opacity: 0.9;
+  color: var(--stamp-red);
+}
+.stamp__v {
+  position: absolute;
+}
+.stamp__v img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.stamp__ring {
+  inset: 3.13%;
+}
+.stamp__ring img {
+  inset: -1.39%;
+  width: auto;
+  height: auto;
+  width: calc(100% + 2.78%);
+  height: calc(100% + 2.78%);
+  left: -1.39%;
+  top: -1.39%;
+}
+.stamp__ring2 {
+  inset: 11.46%;
+}
+.stamp__ring2 img {
+  width: calc(100% + 1.36%);
+  height: calc(100% + 1.36%);
+  left: -0.68%;
+  top: -0.68%;
+}
+.stamp__line {
+  inset: 41.67% 14.58% 39.58% 14.58%;
+}
+.stamp__line img {
+  width: 100%;
+  height: calc(100% + 5.56%);
+  top: -2.78%;
+}
+.stamp__t {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(var(--st) * 0.8333);
+  text-align: center;
+  white-space: nowrap;
+}
+.stamp__seoul {
+  top: calc(var(--st) * 0.25);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: calc(var(--st) * 0.125);
+  line-height: calc(var(--st) * 0.1458);
+  letter-spacing: calc(var(--st) * 0.0156);
+}
+.stamp__district {
+  top: calc(var(--st) * 0.3958);
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: calc(var(--st) * 0.1875);
+  line-height: calc(var(--st) * 0.2708);
+}
+.stamp__date {
+  top: calc(var(--st) * 0.6458);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: calc(var(--st) * 0.0938);
+  line-height: calc(var(--st) * 0.1458);
+  letter-spacing: calc(var(--st) * 0.0052);
+}
+
+/* ───────── 종이 이름표 ───────── */
+.tag-paper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 10px;
+  border-radius: 14px 6px 6px 14px;
+  background: var(--paper);
+  filter: var(--shadow-paper);
+  font-family: var(--font-hand);
+  font-size: 19px;
+  line-height: 24px;
+  white-space: nowrap;
+}
+.tag-paper img {
+  width: 8px;
+  height: 8px;
+}
+button.tag-paper {
+  cursor: pointer;
+}
+
+/* ───────── 탭 바 ───────── */
+.tab-bar {
+  position: relative;
+  z-index: 3;
+  flex: none;
+  height: 94px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 8px 16px 26px;
+  background: var(--cream);
+  border-top: 1.5px dashed var(--point);
+}
+.tab-item {
+  width: 120px;
+  height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 0;
+  font-size: 13px;
+  line-height: 20px;
+}
+.tab-item__icon {
+  width: 48px;
+  height: 30px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tab-item__icon img {
+  width: 24px;
+  height: 24px;
+}
+.tab-item--on .tab-item__icon {
+  background: var(--paper);
+}
+.tab-item--on {
+  font-weight: 500;
+  line-height: 18px;
+}
+
+/* ───────── 단계 표시 ───────── */
+.progress {
+  flex: none;
+  height: 40px;
+  margin: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.progress__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 20px;
+}
+.progress__step--now {
+  font-weight: 500;
+  line-height: 18px;
+}
+.progress__dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cream);
+  border: 1.5px solid var(--point-strong);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 14px;
+  letter-spacing: 1.5px;
+}
+.progress__dot--done,
+.progress__dot--now {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--cream);
+}
+.progress__dot img {
+  width: 14.4px;
+  height: 14.4px;
+}
+.progress__dash {
+  width: 40px;
+  height: 0;
+  border-top: 1.5px dashed var(--point);
+}
+.progress__dash--on {
+  border-top-color: var(--ink);
+}
+
+/* ───────── 펼친 일기장 (가죽 표지 + 줄노트) ───────── */
+.open-diary {
+  position: relative;
+  background: var(--leather);
+  border-radius: 14px;
+  filter: var(--shadow-object);
+}
+.open-diary__stitch {
+  position: absolute;
+  inset: 6px;
+  border: 1.2px dashed var(--cream);
+  border-radius: 10px;
+  pointer-events: none;
+}
+.open-diary__page {
+  position: absolute;
+  left: 14px;
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+  overflow: hidden;
+  background: var(--cream);
+  border-radius: 2px 6px 6px 2px;
+  box-shadow: var(--box-shadow-paper);
+}
+.open-diary__lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
