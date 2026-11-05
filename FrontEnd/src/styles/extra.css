@@ -1,0 +1,1145 @@
+/* 새 Figma(02~05 섹션 + 데스크톱 프레임) 화면 스타일. Figma 스크린샷 기준 근사치. */
+
+/* ───────── 공통 ───────── */
+.select {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--point);
+  border-radius: 999px;
+  background: var(--cream);
+  font-size: 13px;
+  color: var(--ink);
+}
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.skeleton {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(185, 155, 122, 0.35);
+}
+
+/* ───────── 그림 설정 (08) ───────── */
+.set-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.style-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.style-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 6px 8px;
+  text-align: left;
+  background: var(--polaroid);
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  box-shadow: var(--box-shadow-paper);
+}
+.style-card--on {
+  border-color: var(--ink);
+}
+.style-card__img {
+  position: relative;
+  display: block;
+  height: 86px;
+  overflow: hidden;
+  border-radius: 6px;
+}
+.style-card__img > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.style-card__check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ink);
+  display: grid;
+  place-items: center;
+}
+.style-card__check img {
+  width: 14px;
+  height: 14px;
+}
+.style-card__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.style-card__rec {
+  font-style: normal;
+  font-size: 11px;
+  line-height: 16px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--paper);
+}
+
+/* ───────── 생성 중 (09) · 결과 (10) ───────── */
+.gen-diary {
+  flex: none;
+  margin: 11px 12px 0;
+  height: 396px;
+}
+.gen-diary--result {
+  height: 520px;
+}
+.gen-diary__body {
+  position: absolute;
+  inset: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.gen-diary__pic {
+  position: relative;
+  height: 190px;
+}
+.gen-diary__sketch {
+  position: absolute;
+  left: 150px;
+  top: 20px;
+  width: 120px;
+  height: 140px;
+  background: rgba(185, 155, 122, 0.28);
+  border-radius: 4px;
+}
+.gen-card {
+  position: relative;
+  z-index: 2;
+  margin: -28px 20px 0;
+  padding: 16px 18px;
+  background: var(--cream);
+  border-radius: 6px;
+  box-shadow: var(--box-shadow-paper);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.gen-steps {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gen-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--point-strong);
+}
+.gen-step--now,
+.gen-step--done {
+  color: var(--ink);
+}
+.gen-step__dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--point);
+  display: grid;
+  place-items: center;
+}
+.gen-step--done .gen-step__dot {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.gen-step--done .gen-step__dot img {
+  width: 12px;
+  height: 12px;
+}
+.gen-step--now .gen-step__dot {
+  border-color: var(--ink);
+  background: radial-gradient(circle, var(--ink) 38%, transparent 42%);
+}
+.result-pic {
+  position: relative;
+  height: 170px;
+  margin: 8px 0 0;
+}
+.result-pic > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 6px solid var(--polaroid);
+  box-shadow: var(--box-shadow-paper);
+}
+.result-pic--big {
+  height: 100%;
+  margin: 0;
+}
+.result-pic__cap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -22px;
+  text-align: center;
+}
+.result-actions {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 20px 0;
+}
+.result-actions__row {
+  display: flex;
+  gap: 8px;
+}
+.result-actions__row > .btn {
+  flex: 1;
+}
+.mood-tag {
+  align-self: flex-start;
+  padding: 2px 12px;
+  background: rgba(169, 180, 154, 0.55);
+}
+
+/* ───────── 서울 지도 팝업 (03) ───────── */
+.map-dim {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: rgba(30, 26, 22, 0.45);
+}
+.map-close {
+  position: absolute;
+  z-index: 6;
+  top: 54px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--cream);
+  display: grid;
+  place-items: center;
+}
+.map-scroll {
+  position: absolute;
+  z-index: 5;
+  left: 12px;
+  right: 12px;
+  top: 94px;
+  display: flex;
+  flex-direction: column;
+}
+.map-scroll__rod {
+  display: block;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--point);
+  box-shadow: 0 2px 4px rgba(51, 36, 23, 0.3);
+}
+.map-scroll__paper {
+  background: var(--cream);
+  margin: 0 8px;
+  padding: 14px 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.map-grid {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0 8px;
+  align-items: center;
+}
+.map-grid__river {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 96px;
+  width: 100%;
+  height: 20px;
+  object-fit: fill;
+  opacity: 0.8;
+  pointer-events: none;
+}
+.map-grid__row {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+}
+.map-cell {
+  width: 38px;
+  height: 36px;
+  border-radius: 7px;
+  border: 1px solid var(--point);
+  background: var(--paper);
+  font-size: 10px;
+  line-height: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.map-cell small {
+  font-size: 9px;
+}
+.map-cell--has {
+  background: var(--leather);
+  color: var(--cream);
+  border-color: var(--leather);
+}
+.map-cell--sel {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+.map-cell--blank {
+  visibility: hidden;
+}
+.map-legend {
+  display: flex;
+  gap: 14px;
+}
+.map-legend i {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  vertical-align: -2px;
+  border: 1px solid var(--point);
+  border-radius: 3px;
+  background: var(--paper);
+}
+.map-legend .map-legend__on {
+  background: var(--leather);
+}
+.map-card {
+  position: absolute;
+  z-index: 6;
+  left: 12px;
+  right: 12px;
+  bottom: 104px;
+  padding: 14px 16px 16px;
+  background: var(--cream);
+  border-radius: 6px;
+  box-shadow: var(--box-shadow-paper);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.map-card .btn {
+  margin-top: 8px;
+}
+
+/* ───────── 책 펼치기 (11) ───────── */
+.book-open {
+  min-height: 100%;
+  cursor: pointer;
+}
+.book-near {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  animation: bookZoom 1.4s ease-out both;
+}
+@keyframes bookZoom {
+  from { transform: scale(0.8); }
+  to { transform: scale(1); }
+}
+.book-dark {
+  position: absolute;
+  inset: 0;
+  background: var(--blackout);
+  color: var(--cream);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.book-dots {
+  display: flex;
+  gap: 6px;
+}
+.book-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cream);
+  opacity: 0.4;
+  animation: dotPulse 1.2s infinite;
+}
+.book-dots i:nth-child(2) { animation-delay: 0.2s; }
+.book-dots i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dotPulse {
+  50% { opacity: 1; }
+}
+.book-spread {
+  display: flex;
+  width: 234px;
+  height: 188px;
+  padding: 8px;
+  gap: 2px;
+  border-radius: 24px;
+  background: #6a645d;
+  animation: bookZoom 1s ease-out both;
+}
+.book-spread span {
+  flex: 1;
+  background: var(--cream);
+}
+.book-spread span + span {
+  background: var(--paper);
+}
+
+/* ───────── 책장 (05) ───────── */
+.shelf-head {
+  flex: none;
+  position: relative;
+  padding: 18px 20px 12px;
+}
+.shelf-m {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 8px 12px;
+  overflow: hidden;
+}
+.shelf-m__rows {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.shelf-m__row {
+  display: flex;
+  gap: 10px;
+  padding: 0 8px 8px;
+  border-bottom: 8px solid var(--wood-dark);
+}
+.book {
+  position: relative;
+  flex: 1;
+  height: 108px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2px;
+  padding: 18px 4px 0 10px;
+  border-radius: 4px 6px 6px 4px;
+  border-left: 7px solid #cdbba3;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--box-shadow-paper);
+  text-align: center;
+}
+.book--mine {
+  background: var(--leather);
+  border-left-color: #523a2a;
+  color: var(--cream);
+}
+.book--empty {
+  background: rgba(232, 217, 198, 0.35);
+  border: 1px dashed var(--point-strong);
+  box-shadow: none;
+}
+.book__tape {
+  position: absolute;
+  left: 20%;
+  bottom: 6px;
+  width: 60%;
+  height: 14px;
+}
+.book--mini {
+  flex: none;
+  width: 92px;
+  height: 128px;
+}
+.pager {
+  position: relative;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--cream);
+}
+.pager button:disabled {
+  opacity: 0.3;
+}
+.pager i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--ink);
+}
+.pager i.pager__on {
+  width: 22px;
+  border-radius: 4px;
+  background: var(--ink);
+}
+
+/* ───────── 자치구 책 (12) ───────── */
+.app-bar__map {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+}
+.district-head {
+  position: relative;
+  flex: none;
+  padding: 6px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.district-head .t-body {
+  font-size: 13px;
+  line-height: 20px;
+}
+.district-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  padding: 16px 12px 0;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+.seg {
+  display: flex;
+  gap: 4px;
+}
+.seg button {
+  flex: 1;
+  height: 36px;
+  border-radius: 999px;
+  font-size: 13px;
+}
+.seg .seg--on {
+  background: var(--ink);
+  color: var(--cream);
+}
+.entry-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.entry-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px 8px 8px;
+  background: var(--polaroid);
+  border-radius: 4px;
+  box-shadow: var(--box-shadow-paper);
+  text-align: left;
+}
+.entry-row__thumb {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+}
+.entry-row__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.entry-row__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.district-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding-top: 20px;
+}
+
+/* ───────── 데스크톱 ───────── */
+.dnav {
+  position: relative;
+  z-index: 3;
+  flex: none;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 56px;
+  background: var(--cream);
+  border-bottom: 1px solid var(--paper);
+}
+.dnav__logo {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+.dnav__tabs {
+  display: flex;
+  gap: 8px;
+}
+.dnav__tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-size: 14px;
+}
+.dnav__tab img {
+  width: 20px;
+  height: 20px;
+}
+.dnav__tab--on {
+  background: var(--paper);
+  font-weight: 500;
+}
+
+.app.app--wide {
+  max-width: none;
+  height: auto;
+  min-height: 100vh;
+  border-radius: 0;
+  box-shadow: none;
+}
+body:has(.app--wide) {
+  display: block;
+  place-items: normal;
+  padding: 0;
+  background: var(--cream);
+}
+.app.app--wide {
+  width: 100%;
+}
+.dsk-screen {
+  min-height: 100vh;
+}
+.dsk-screen > .dnav {
+  flex: none;
+}
+
+/* 홈 (데스크톱) */
+.home-d {
+  position: relative;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1.1fr 1fr;
+  gap: 32px;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 48px 48px 56px;
+}
+.home-d__left,
+.home-d__mid,
+.home-d__right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
+.home-d__mid {
+  justify-content: center;
+}
+.home-d__polas {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.home-d__small {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.obj-btn--flow {
+  position: relative;
+  left: auto;
+  top: auto;
+  width: auto;
+  height: auto;
+  display: block;
+}
+.note--stamp {
+  position: relative;
+  width: 260px;
+}
+
+/* 오늘 (데스크톱) */
+.today-d {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  padding: 48px;
+}
+.today-d__map {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.today-d__book {
+  width: min(900px, 70vw);
+  height: 640px;
+}
+.today-d__cols {
+  position: absolute;
+  inset: 28px 36px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 36px;
+}
+.today-d__recent,
+.today-d__new {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dropzone--wide {
+  position: relative;
+  width: 100%;
+  height: 300px;
+  left: auto;
+  top: auto;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* 대화 (데스크톱) */
+.chat-d {
+  position: relative;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 32px;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 40px 48px;
+}
+.chat-d__side {
+  align-self: start;
+  padding: 24px;
+  border-radius: 12px;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.chat-d__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  justify-items: center;
+}
+.chat-d__main {
+  display: flex;
+  flex-direction: column;
+  min-height: 560px;
+}
+.chat-d__top {
+  display: flex;
+  justify-content: flex-end;
+}
+.chat-d__main .chat-scroll {
+  flex: 1;
+}
+
+/* 결과 (데스크톱) */
+.result-d {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 24px;
+  padding: 40px 48px 56px;
+}
+.result-d__book {
+  width: min(1000px, 72vw);
+  height: 720px;
+}
+.result-d__page {
+  position: absolute;
+  inset: 40px 48px;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 40px;
+}
+.result-d__pic {
+  position: relative;
+  height: 420px;
+}
+.result-d__text {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.result-d__panel {
+  width: 240px;
+  padding: 18px 16px;
+  background: var(--cream);
+  border-radius: 6px;
+  box-shadow: var(--box-shadow-paper);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.result-d__btns {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* 책장 (데스크톱) */
+.shelf-d__head {
+  position: relative;
+  padding: 28px 64px 16px;
+}
+.shelf-d__wood {
+  position: relative;
+  flex: 1;
+  padding: 36px 64px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  overflow: hidden;
+}
+.spines {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  height: 230px;
+}
+.spine {
+  flex: 1;
+  max-width: 44px;
+  display: flex;
+  justify-content: center;
+  padding-top: 14px;
+  border-radius: 3px 3px 0 0;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--box-shadow-paper);
+}
+.spine span {
+  writing-mode: vertical-rl;
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+.spine--mine {
+  background: var(--leather);
+  color: var(--cream);
+}
+.spine--sel {
+  outline: 2px solid var(--ink);
+  transform: translateY(-8px);
+}
+.spines__board {
+  position: relative;
+  height: 10px;
+  margin-top: -40px;
+  background: var(--wood-dark);
+}
+.shelf-d__card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 20px 28px;
+  background: var(--cream);
+  border-radius: 6px;
+  box-shadow: var(--box-shadow-paper);
+}
+.shelf-d__info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.shelf-d__thumbs {
+  display: flex;
+  gap: 16px;
+}
+.shelf-d__thumbs figure {
+  width: 100px;
+  text-align: center;
+}
+.shelf-d__thumbs img {
+  width: 100px;
+  height: 80px;
+  object-fit: cover;
+}
+
+/* 배경 이미지(.fill-img)는 absolute 라서, 위에 올라갈 레이어는 모두 positioned 여야 한다 */
+.result-d,
+.today-d {
+  position: relative;
+}
+
+/* ───────── 07 예외 상태 시트 ───────── */
+.notice {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 16px 24px;
+  background: rgba(30, 26, 22, 0.45);
+}
+.notice__card {
+  position: relative;
+  width: 100%;
+  max-width: 358px;
+  padding: 30px 22px 20px;
+  background: var(--cream);
+  border-radius: 6px;
+  box-shadow: var(--box-shadow-paper);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.notice__card .t-heading {
+  margin-top: 12px;
+}
+.notice__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--paper);
+  display: grid;
+  place-items: center;
+}
+.notice__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.dsk-screen > .notice,
+.app--wide .notice {
+  align-items: center;
+}
+
+/* ───────── 13 마이페이지 ───────── */
+.me-head {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  padding: 6px 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--cream);
+}
+.seg--pill {
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--paper);
+}
+.seg--pill button {
+  height: 38px;
+}
+.me-m {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 12px 14px;
+  overflow: hidden;
+}
+.me-m__book {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.me-m__page {
+  padding: 24px 24px 20px;
+}
+.me-profile {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.me-avatar {
+  width: 70px;
+  height: 70px;
+  margin-bottom: 8px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid var(--point-strong);
+  background: var(--paper);
+}
+.me-rows {
+  width: 100%;
+  margin-top: 22px;
+}
+.me-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: 40px;
+  border-bottom: 1px dashed var(--point);
+}
+.me-row dt {
+  width: 78px;
+  flex: none;
+}
+.me-row dd {
+  flex: 1;
+  min-width: 0;
+}
+.me-input {
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--point);
+  border-radius: 6px;
+  background: var(--cream);
+}
+.me-edit {
+  width: 100%;
+  margin-top: auto;
+}
+.me-settings {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.me-list {
+  list-style: none;
+  margin-top: 16px;
+}
+.me-list li {
+  border-bottom: 1px dashed var(--point);
+}
+.me-list li:last-child {
+  border-bottom: 0;
+}
+.me-list button {
+  width: 100%;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+}
+.me-list button .t-body {
+  flex: 1;
+}
+.me-list em {
+  font-style: normal;
+}
+.me-logout .t-body {
+  color: var(--danger);
+}
+.me-version {
+  margin-top: auto;
+}
+
+/* 마이페이지 (데스크톱): 두 페이지 펼침 */
+.me-d {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px;
+}
+.me-d__book {
+  width: min(900px, 92vw);
+  height: 700px;
+}
+.me-d__spread {
+  display: grid;
+  grid-template-columns: 1fr 24px 1fr;
+  padding: 56px 40px 40px;
+}
+.me-d__left,
+.me-d__right {
+  position: relative;
+  padding: 0 24px;
+}
+.me-d__gutter {
+  position: relative;
+  background: linear-gradient(90deg, transparent, rgba(98, 85, 72, 0.18), transparent);
+}
+
+/* ───────── SEOUL MATE 로고 ───────── */
+.logo {
+  display: block;
+  max-width: none;
+}
+.home-head__logo {
+  gap: 2px;
+  align-items: flex-start; /* 세로 flex 안에서 로고가 가로로 늘어나 비율이 깨지는 것을 막는다 */
+}
+.home-head__logo .logo {
+  width: auto;
+  flex: none;
+}
+.dnav__logo .logo {
+  align-self: center;
+}
+/* 일기장 표지: 로고가 들어가도록 이름표를 키운다 */
+.diary-closed--logo .diary-closed__plate {
+  top: 62px;
+  height: 106px;
+}
+.diary-closed--logo .diary-closed__logo {
+  top: 68px;
+}
+.diary-closed--logo .diary-closed__count {
+  top: 130px;
+}
+.diary-closed--logo .diary-closed__last {
+  top: 148px;
+}
+.me-profile .logo {
+  margin: 2px 0 4px;
+}
+.diary-closed--logo .diary-closed__logo {
+  width: auto;
+  height: 58px;
+}

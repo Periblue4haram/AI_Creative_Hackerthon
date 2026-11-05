@@ -1,0 +1,27 @@
+/* Figma 변수(base/*, scrap/*, 타이포, 그림자)를 그대로 옮긴 디자인 토큰 */
+:root {
+  --ink: #625548;
+  --point: #b99b7a;
+  --point-strong: #8c7256;
+  --cream: #f5f0e8;
+  --paper: #e8d9c6;
+  --blackout: #1e1a16;
+  --danger: #9a3b2e;
+
+  --polaroid: #fbf8f2;
+  --leather: #6e4f3a;
+  --stamp-red: #9a3b2e;
+  --tape-sage: #a9b49a;
+  --tape-rose: #d9b3a3;
+  --wood-dark: #a3825f;
+
+  --font-sans: 'Noto Sans KR', system-ui, sans-serif;
+  --font-serif: 'Gowun Batang', serif;
+  --font-hand: 'Gaegu', cursive;
+  --font-mono: 'Courier Prime', ui-monospace, monospace;
+
+  --shadow-paper: drop-shadow(0 1px 1px rgba(98, 85, 72, 0.16)) drop-shadow(0 6px 7px rgba(98, 85, 72, 0.1));
+  --shadow-soft: drop-shadow(0 4px 8px rgba(98, 85, 72, 0.1));
+  --shadow-object: drop-shadow(4px 10px 9px rgba(51, 36, 23, 0.3));
+  --box-shadow-paper: 0 6px 14px rgba(98, 85, 72, 0.1), 0 1px 2px rgba(98, 85, 72, 0.16);
+}

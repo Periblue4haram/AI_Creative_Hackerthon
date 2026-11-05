@@ -1,0 +1,23 @@
+{
+  "name": "seoul-picture-diary",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "assets": "node scripts/fetch-assets.mjs",
+    "predev": "node scripts/fetch-assets.mjs --if-missing",
+    "dev": "vite",
+    "prebuild": "node scripts/fetch-assets.mjs --if-missing",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11"
+  }
+}
