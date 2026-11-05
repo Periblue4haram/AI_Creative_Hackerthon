@@ -27,6 +27,7 @@ import com.aidiary.ai.ImageStyler.GeneratedImage;
 import com.aidiary.auth.GoogleTokenVerifier;
 import com.aidiary.auth.GoogleTokenVerifier.GoogleUser;
 import com.aidiary.auth.VerificationMailSender;
+import com.aidiary.diary.ChatService;
 import com.aidiary.community.EmbeddingJob;
 import com.aidiary.geo.GeoLocator;
 import com.aidiary.geo.GeoLocator.GeoResult;
@@ -459,6 +460,35 @@ class ApiFlowTest {
                 .andExpect(jsonPath("$.code").value("CHAT_LIMIT_REACHED"));
 
         send(get(chat + "/messages"), token, null).andExpect(jsonPath("$.items.length()").value(5));
+    }
+
+    @Test
+    void chatEndsAfterFiveQuestions() throws Exception {
+        String token = newUser();
+        long pageId = pageIds(token, createDiary(token, List.of("마포구"))).getFirst();
+        String chat = "/api/v1/diary-pages/" + pageId + "/chat";
+        send(post(chat + "/start"), token, null);
+
+        // 질문 1~4에 답하면 AI가 질문 2~5를 만든다
+        for (int i = 0; i < 4; i++) {
+            send(post(chat + "/messages"), token, Map.of("content", "답변"))
+                    .andExpect(jsonPath("$.message.content").value("다음 질문"))
+                    .andExpect(jsonPath("$.limitReached").value(false));
+        }
+        // 5번째 질문에 답하면 AI를 부르지 않고 마무리 인사로 대화를 닫는다
+        send(post(chat + "/messages"), token, Map.of("content", "답변"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message.content").value(ChatService.CLOSING_MESSAGE))
+                .andExpect(jsonPath("$.limitReached").value(true));
+        verify(ai, Mockito.times(4)).nextQuestion(any(), anyString(), any());
+
+        send(post(chat + "/messages"), token, Map.of("content", "답변"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CHAT_LIMIT_REACHED"));
+        send(get(chat + "/messages"), token, null)
+                .andExpect(jsonPath("$.items.length()").value(11))
+                .andExpect(jsonPath("$.limitReached").value(true));
+        send(post("/api/v1/diary-pages/" + pageId + "/text/generate"), token, null).andExpect(status().isOk());
     }
 
     @Test
