@@ -84,6 +84,6 @@ export function toFeedItem(page, author, myNick) {
     original: page.imageSource === 'ORIGINAL',
     vis: page.photoHidden ? 'text' : 'public',
     myReaction: page.myReaction ? page.myReaction.toLowerCase() : null,
-    mine: !!myNick && author.nickname === myNick, // 닉네임은 서버에서 중복이 안 되므로 내 페이지를 가려낼 수 있다
+    mine: false, // 닉네임이 중복될 수 있어 작성자를 닉네임으로 가릴 수 없다 (서버가 내 글 표시를 주면 연결)
   };
 }

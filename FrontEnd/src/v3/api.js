@@ -10,7 +10,8 @@ export class ApiError extends Error {
   constructor(status, body) {
     super(body?.message || `HTTP ${status}`);
     this.status = status;
-    this.code = body?.code || (status === 0 ? 'NETWORK_ERROR' : 'INTERNAL_ERROR');
+    // 본문 없는 502/503/504·프록시 500은 서버에 닿지 못한 것(백엔드 꺼짐 등)이다
+    this.code = body?.code || (status === 0 || (!body && status >= 500) ? 'NETWORK_ERROR' : 'INTERNAL_ERROR');
     this.details = body?.details || null;
   }
 }
@@ -132,7 +133,7 @@ const upload = (path, field, files, method = 'POST') => {
 
 export const api = {
   auth: {
-    signup: (email, password, nickname) => post('/auth/signup', { email, password, nickname }),
+    signup: (email, password, nickname, privacyAgreed) => post('/auth/signup', { email, password, nickname, privacyAgreed }),
     verify: (email, code) => post('/auth/email/verify', { email, code }),
     resend: (email) => post('/auth/email/resend', { email }),
     login: (email, password) => post('/auth/login', { email, password }),
@@ -142,6 +143,12 @@ export const api = {
   me: {
     get: () => get('/me'),
     update: (nickname) => patch('/me', { nickname }),
+    setImage: (file) => upload('/me/profile-image', 'image', file, 'PUT'),
+    removeImage: () => del('/me/profile-image'),
+    face: () => get('/me/face-data'),
+    registerFace: (file) => upload('/me/face-data', 'image', file),
+    useFace: (enabled) => patch('/me/face-data', { enabled }),
+    removeFace: () => del('/me/face-data'),
     diaries: (page = 0, size = 50) => get('/me/diaries', { page, size }),
   },
   diary: {
