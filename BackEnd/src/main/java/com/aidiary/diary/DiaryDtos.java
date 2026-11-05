@@ -62,6 +62,7 @@ public final class DiaryDtos {
             LocalDate logicalDate,
             DiaryVisibility visibility,
             int pageCount,
+            List<Region> regions,
             String thumbnailUrl,
             String preview,
             OffsetDateTime completedAt) {}
@@ -78,7 +79,13 @@ public final class DiaryDtos {
             @Size(min = 1, max = 50) String templateId,
             @Size(max = 4) List<@Valid CompletePage> pages) {}
 
-    public record UpdateDiaryRequest(DiaryVisibility visibility, @Size(min = 1, max = 50) String templateId) {}
+    public record PageVisibilityUpdate(@NotNull Long id, @NotNull PageVisibility visibility) {}
+
+    /** 공개 범위 변경 화면에서 일기와 페이지 공개 범위를 한 번에 저장한다. 모두 생략할 수 있다. */
+    public record UpdateDiaryRequest(
+            DiaryVisibility visibility,
+            @Size(min = 1, max = 50) String templateId,
+            @Size(max = 4) List<@Valid PageVisibilityUpdate> pages) {}
 
     public record UpdatePageRequest(@Size(min = 1, max = MAX_CONTENT_CHARS) String content, PageVisibility visibility) {}
 

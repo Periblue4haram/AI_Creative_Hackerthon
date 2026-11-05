@@ -32,13 +32,18 @@ CREATE TABLE users (
   email_verified_at DATETIME   NULL COMMENT 'NULL이면 미인증. 구글 로그인은 가입 시 설정',
   password_hash  VARCHAR(100)  NULL COMMENT 'BCrypt. 구글 전용 계정은 NULL',
   google_sub     VARCHAR(255)  NULL COMMENT 'Google ID 토큰의 sub',
-  nickname       VARCHAR(30)   NOT NULL,
+  nickname       VARCHAR(30)   NOT NULL COMMENT '중복 허용',
+  privacy_agreed_at DATETIME   NULL COMMENT '개인정보처리방침 동의 시각',
+  profile_image_path VARCHAR(255) NULL COMMENT '프로필 사진 상대 경로',
+  profile_image_version INT    NOT NULL DEFAULT 0 COMMENT '바뀔 때마다 증가. URL 캐시 구분용',
+  face_image_path VARCHAR(255) NULL COMMENT '등록한 얼굴 사진 상대 경로',
+  face_registered_at DATETIME  NULL,
+  face_enabled   BOOLEAN       NOT NULL DEFAULT TRUE COMMENT '그림 변환에 얼굴 데이터를 쓸지',
   created_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uk_users_email (email),
   UNIQUE KEY uk_users_google_sub (google_sub),
-  UNIQUE KEY uk_users_nickname (nickname),
   CONSTRAINT ck_users_login_method CHECK (password_hash IS NOT NULL OR google_sub IS NOT NULL)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 

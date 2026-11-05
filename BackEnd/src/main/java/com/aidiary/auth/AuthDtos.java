@@ -1,7 +1,9 @@
 package com.aidiary.auth;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -9,10 +11,12 @@ public final class AuthDtos {
 
     private AuthDtos() {}
 
+    /** privacyAgreed는 개인정보처리방침 필수 동의이며 true여야 한다. 닉네임은 다른 사람과 같아도 된다. */
     public record SignupRequest(
             @NotBlank @Email @Size(max = 255) String email,
             @NotBlank @Size(min = 8) String password,
-            @NotBlank @Size(min = 2, max = 30) String nickname) {}
+            @NotBlank @Size(min = 2, max = 30) String nickname,
+            @NotNull @AssertTrue Boolean privacyAgreed) {}
 
     public record SignupResponse(String email, boolean verificationRequired, int expiresIn) {}
 
