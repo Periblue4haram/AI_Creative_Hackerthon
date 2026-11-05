@@ -34,6 +34,9 @@ public class ChatService {
     private static final Logger log = LoggerFactory.getLogger(ChatService.class);
     private static final int FINISH_SUGGEST_CHARS = 500;
     private static final int LIMIT_CHARS = 800;
+    /** AI 질문은 페이지당 5개까지. 5번째 질문에 답하면 대화를 마친다. */
+    public static final int MAX_QUESTIONS = 5;
+    public static final String CLOSING_MESSAGE = "이야기 들려줘서 고마워요! 이제 대화 내용으로 일기 글을 만들어 볼까요?";
 
     private final DiaryPageRepository pages;
     private final ChatMessageRepository messages;
@@ -67,7 +70,7 @@ public class ChatService {
         PageAndDiary target = chatTarget(userId, pageId);
         List<ChatMessage> existing = messages.findByPageIdOrderByIdAsc(pageId);
         if (!existing.isEmpty()) {
-            return turnResponse(existing.getFirst(), target.page());
+            return turnResponse(existing.getFirst(), target.page(), answerCount(existing));
         }
         String question = callAi(() -> ai.firstQuestion(photo(pageId), context(target)));
         return tx.execute(s -> {
@@ -75,24 +78,25 @@ public class ChatService {
             // 같은 시작 요청이 동시에 들어와도 첫 질문은 하나만 남긴다
             List<ChatMessage> again = messages.findByPageIdOrderByIdAsc(pageId);
             if (!again.isEmpty()) {
-                return turnResponse(again.getFirst(), page);
+                return turnResponse(again.getFirst(), page, answerCount(again));
             }
             ChatMessage saved = messages.save(new ChatMessage(pageId, MessageRole.ASSISTANT, question));
             page.chatStatus = ChatStatus.IN_PROGRESS;
-            return turnResponse(saved, page);
+            return turnResponse(saved, page, 0);
         });
     }
 
     public ChatHistoryResponse history(Long userId, Long pageId) {
         DiaryPage page = access.readablePage(userId, pageId).page();
-        List<ChatMessageDto> items =
-                messages.findByPageIdOrderByIdAsc(pageId).stream().map(ChatService::toDto).toList();
+        List<ChatMessage> all = messages.findByPageIdOrderByIdAsc(pageId);
+        List<ChatMessageDto> items = all.stream().map(ChatService::toDto).toList();
+        boolean limit = limitReached(page, answerCount(all));
         return new ChatHistoryResponse(
                 items,
                 page.chatStatus,
                 page.estimatedChars,
-                page.estimatedChars >= FINISH_SUGGEST_CHARS,
-                page.estimatedChars >= LIMIT_CHARS);
+                page.estimatedChars >= FINISH_SUGGEST_CHARS || limit,
+                limit);
     }
 
     public ChatTurnResponse send(Long userId, Long pageId, String content) {
@@ -101,23 +105,35 @@ public class ChatService {
         if (page.chatStatus != ChatStatus.IN_PROGRESS) {
             throw new ApiException(ErrorCode.INVALID_STATE);
         }
-        if (page.estimatedChars >= LIMIT_CHARS) {
+        int answered = answerCount(messages.findByPageIdOrderByIdAsc(pageId));
+        if (limitReached(page, answered)) {
             throw new ApiException(ErrorCode.CHAT_LIMIT_REACHED);
         }
-        // AI 호출이 실패하면 사용자가 같은 답변을 다시 보낼 수 있도록, 성공한 뒤에만 함께 저장한다
-        List<Turn> history = turns(pageId);
-        history.add(new Turn(true, content));
-        ChatReply reply = callAi(() -> ai.nextQuestion(photo(pageId), context(target), history));
+        // 5번째 질문에 대한 답이면 AI에 다음 질문을 묻지 않고 마무리 인사로 대화를 닫는다
+        boolean last = answered + 1 >= MAX_QUESTIONS;
+        ChatReply reply;
+        if (last) {
+            reply = new ChatReply(CLOSING_MESSAGE, page.estimatedChars);
+        } else {
+            // AI 호출이 실패하면 사용자가 같은 답변을 다시 보낼 수 있도록, 성공한 뒤에만 함께 저장한다
+            List<Turn> history = turns(pageId);
+            history.add(new Turn(true, content));
+            reply = callAi(() -> ai.nextQuestion(photo(pageId), context(target), history));
+        }
         return tx.execute(s -> {
             DiaryPage locked = lockPage(pageId);
             if (locked.chatStatus != ChatStatus.IN_PROGRESS) {
                 throw new ApiException(ErrorCode.INVALID_STATE);
             }
+            int before = answerCount(messages.findByPageIdOrderByIdAsc(pageId));
+            if (limitReached(locked, before)) {
+                throw new ApiException(ErrorCode.CHAT_LIMIT_REACHED);
+            }
             messages.save(new ChatMessage(pageId, MessageRole.USER, content));
             ChatMessage saved = messages.save(new ChatMessage(pageId, MessageRole.ASSISTANT, reply.question()));
             // 일기 분량 추정치는 대화가 이어지는 동안 줄어들지 않는다
             locked.estimatedChars = Math.min(LIMIT_CHARS, Math.max(locked.estimatedChars, reply.estimatedChars()));
-            return turnResponse(saved, locked);
+            return turnResponse(saved, locked, before + 1);
         });
     }
 
@@ -190,13 +206,23 @@ public class ChatService {
         }
     }
 
-    private static ChatTurnResponse turnResponse(ChatMessage message, DiaryPage page) {
+    private static int answerCount(List<ChatMessage> all) {
+        return (int) all.stream().filter(m -> m.role == MessageRole.USER).count();
+    }
+
+    /** 분량이 800자에 닿았거나, 5번째 질문까지 답했으면 더 이상 답변을 받지 않는다. */
+    private static boolean limitReached(DiaryPage page, int answered) {
+        return page.estimatedChars >= LIMIT_CHARS || answered >= MAX_QUESTIONS;
+    }
+
+    private static ChatTurnResponse turnResponse(ChatMessage message, DiaryPage page, int answered) {
+        boolean limit = limitReached(page, answered);
         return new ChatTurnResponse(
                 toDto(message),
                 page.chatStatus,
                 page.estimatedChars,
-                page.estimatedChars >= FINISH_SUGGEST_CHARS,
-                page.estimatedChars >= LIMIT_CHARS);
+                page.estimatedChars >= FINISH_SUGGEST_CHARS || limit,
+                limit);
     }
 
     private static ChatMessageDto toDto(ChatMessage message) {

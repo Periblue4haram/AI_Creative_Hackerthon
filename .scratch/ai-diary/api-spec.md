@@ -58,7 +58,7 @@
 | 409 | `PAGE_LIMIT_EXCEEDED` | 일기당 4장 초과 (업로드할 때 5장 이상 보낸 경우 포함) |
 | 409 | `LAST_PAGE_CANNOT_BE_DELETED` | 마지막 페이지 삭제 시도 |
 | 409 | `INVALID_STATE` | 현재 상태에서 할 수 없는 요청 |
-| 409 | `CHAT_LIMIT_REACHED` | 800자 도달 후 메시지 전송 |
+| 409 | `CHAT_LIMIT_REACHED` | 800자 도달 또는 5번째 질문에 답한 뒤 메시지 전송 |
 | 409 | `ALREADY_REPORTED` | 같은 페이지 중복 신고 |
 | 409 | `PAGE_REPORT_BLOCKED` | 신고로 차단된 페이지를 공개하려는 시도 |
 | 413 | `FILE_TOO_LARGE` | 사진 1장이 10MB 초과, 또는 요청 전체가 41MB 초과 |
@@ -565,12 +565,13 @@ AI 응답은 스트리밍 없이 한 번에 받으며 수 초가 걸릴 수 있�
 
 | 필드 | 조건 | 프론트엔드 동작 |
 |---|---|---|
-| `finishSuggested` | `estimatedChars >= 500` | 마무리 안내 표시, 대화 계속 가능 |
-| `limitReached` | `estimatedChars >= 800` | 입력을 막고 글 생성 유도 |
+| `finishSuggested` | `estimatedChars >= 500` 또는 `limitReached` | 마무리 안내 표시, 대화 계속 가능 |
+| `limitReached` | `estimatedChars >= 800` 또는 답변 5개 | 입력을 막고 글 생성 유도 |
 
 - `estimatedChars`는 AI가 추정한 일기 분량이며 대화 중에 줄어들지 않고, 800을 넘지 않는다.
+- AI 질문은 페이지당 5개다. 5번째 질문에 대한 답변을 받으면 AI를 부르지 않고 고정 마무리 인사(`"이야기 들려줘서 고마워요! 이제 대화 내용으로 일기 글을 만들어 볼까요?"`)를 `message`로 돌려주며 `limitReached: true`가 된다.
 - AI 호출이 성공한 뒤에만 사용자 답변과 다음 질문을 함께 저장한다. `503 AI_UNAVAILABLE`이면 답변이 저장되지 않았으므로 같은 내용을 다시 보내면 된다.
-- **오류:** `409 CHAT_LIMIT_REACHED` (800자 도달 후 전송), `409 INVALID_STATE` (`chat/start` 전이거나 글 생성 후), `503 AI_UNAVAILABLE`
+- **오류:** `409 CHAT_LIMIT_REACHED` (800자 도달 또는 답변 5개 후 전송), `409 INVALID_STATE` (`chat/start` 전이거나 글 생성 후), `503 AI_UNAVAILABLE`
 
 ### `POST /diary-pages/{pageId}/text/generate`
 
