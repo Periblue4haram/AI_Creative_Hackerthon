@@ -1,11 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { ApiError, api, setAuthLostHandler, tokens } from './api.js';
 import { KO_REGION, VIS_API, toEntry, toFeedItem, toPage, toSummary } from './adapt.js';
-import { GUS, MAX_PHOTOS } from './data.js';
+import { GUS, MAX_PHOTOS, dotDay } from './data.js';
 import { getGoogleIdToken } from './google.js';
 
 /* 서버에 없는 값(프로필 사진·얼굴 데이터)만 브라우저에 둔다 — 보류사항, README 참고 */
-const LOCAL_KEY = 'seoulmate:v3:local';
 const PENDING_KEY = 'seoulmate:v3:pending';
 const DRAFT_KEY = 'seoulmate:v3:draft';
 const mkStore = (get) => ({
@@ -44,6 +43,7 @@ async function run(fn) {
 }
 
 const EMPTY_DRAFT = { diaryId: null, status: null, day: null, photos: [] };
+const FACE_EMPTY = { loaded: false, registered: false, date: '', on: false, url: null };
 const EMPTY_MINE = { items: [], total: 0, loaded: false };
 let seq = 0;
 
@@ -52,7 +52,6 @@ export function AppProvider({ children }) {
   const [me, setMe] = useState(null);
   const [ready, setReady] = useState(false);
   const [pend, setPend] = useState(() => ss.get(PENDING_KEY)); // {email, sentAt, expiresAt}
-  const [local, setLocal] = useState(() => ({ avatar: null, face: { registered: false, date: '', on: true }, ...(ls.get(LOCAL_KEY) || {}) }));
 
   /* ───── 내 일기 목록 / 새 일기 초안 / 소셜 ───── */
   const [mine, setMine] = useState(EMPTY_MINE);
@@ -69,16 +68,26 @@ export function AppProvider({ children }) {
     setDraftState(next);
   }, []);
 
-  useEffect(() => ls.set(LOCAL_KEY, local), [local]);
   const setPending = (v) => {
     setPend(v);
     if (v) ss.set(PENDING_KEY, v);
     else ss.del(PENDING_KEY);
   };
 
+  const toMe = (r) => ({
+    id: r.id,
+    email: r.email,
+    nick: r.nickname,
+    joined: (r.createdAt || '').slice(0, 10),
+    avatar: r.profileImageUrl || null,
+    loginMethod: r.loginMethod,
+    diaryCount: r.diaryCount,
+    firstDiary: r.firstDiaryDate || null,
+  });
+
   const loadMe = useCallback(async () => {
     const r = await api.me.get();
-    const u = { id: r.id, email: r.email, nick: r.nickname, joined: (r.createdAt || '').slice(0, 10) };
+    const u = toMe(r);
     setMe(u);
     return u;
   }, []);
@@ -96,6 +105,7 @@ export function AppProvider({ children }) {
   useEffect(() => {
     setAuthLostHandler(() => {
       setMe(null);
+      setFaceData(FACE_EMPTY);
       setD(EMPTY_DRAFT);
       setMine(EMPTY_MINE);
     });
@@ -129,8 +139,8 @@ export function AppProvider({ children }) {
     /** 인증 코드가 만료되기까지 남은 초 */
     secondsToExpire: () => (pend?.expiresAt ? Math.max(0, Math.ceil((pend.expiresAt - Date.now()) / 1000)) : 0),
     secondsToResend: () => (pend?.sentAt ? Math.max(0, 60 - Math.floor((Date.now() - pend.sentAt) / 1000)) : 0),
-    async signup(email, password, nickname) {
-      const r = await run(() => api.auth.signup(email, password, nickname));
+    async signup(email, password, nickname, privacyAgreed) {
+      const r = await run(() => api.auth.signup(email, password, nickname, privacyAgreed === true));
       // 메일 발송이 실패해도 계정은 만들어진다 → 인증 화면에서 다시 보낼 수 있게 둔다
       if (r.ok) setPending({ email: r.data.email, sentAt: Date.now(), expiresAt: Date.now() + r.data.expiresIn * 1000 });
       else if (r.code === 'EMAIL_SEND_FAILED') setPending({ email: email.trim().toLowerCase(), sentAt: Date.now(), expiresAt: 0 });
@@ -160,6 +170,7 @@ export function AppProvider({ children }) {
     /** 구글 계정 선택 → ID 토큰 → 서버 로그인 (새 계정이면 서버가 임의 닉네임을 만든다) */
     async google() {
       const idToken = await getGoogleIdToken();
+      if (idToken === 'cancel') return { ok: false, code: 'CANCELLED' }; // 사용자가 창을 닫음
       if (!idToken) return { ok: false, code: 'INVALID_GOOGLE_TOKEN' };
       const r = await run(() => api.auth.google(idToken));
       if (!r.ok) return r;
@@ -171,16 +182,24 @@ export function AppProvider({ children }) {
       tokens.clear();
       ls.del(DRAFT_KEY);
       setMe(null);
+      setFaceData(FACE_EMPTY);
       setD(EMPTY_DRAFT);
       setMine(EMPTY_MINE);
       setReactions({});
     },
-    /** 닉네임은 서버, 프로필 사진은 서버에 API 가 없어 브라우저에만 저장한다 */
+    async refreshMe() {
+      await run(loadMe);
+    },
+    /** avatar: undefined 유지 · null 기본 이미지로 · Blob 새 사진 */
     async updateProfile(nick, avatar) {
-      if (avatar !== undefined) setLocal((l) => ({ ...l, avatar }));
+      if (avatar !== undefined) {
+        const r = await run(() => (avatar ? api.me.setImage(avatar) : api.me.removeImage()));
+        if (!r.ok) return r;
+        setMe(toMe(r.data));
+      }
       if (me && nick !== me.nick) {
         const r = await run(() => api.me.update(nick));
-        if (r.ok) setMe((m) => ({ ...m, nick: r.data.nickname }));
+        if (r.ok) setMe(toMe(r.data));
         return r;
       }
       return { ok: true };
@@ -277,8 +296,32 @@ export function AppProvider({ children }) {
     isReported: (id) => reported.includes(id),
   };
 
-  /* ───── 얼굴 데이터 (서버 API 없음 · 보류사항) ───── */
-  const face = { ...local.face, set: (f) => setLocal((l) => ({ ...l, face: { ...l.face, ...f } })) };
+  /* ───── 얼굴 데이터 ───── */
+  const [faceData, setFaceData] = useState(FACE_EMPTY);
+  const putFace = (d) => setFaceData({ loaded: true, registered: !!d.registered, date: d.registeredAt ? dotDay(d.registeredAt.slice(0, 10)) : '', on: !!d.enabled, url: d.imageUrl || null });
+  const face = {
+    ...faceData,
+    async load() {
+      const r = await run(() => api.me.face());
+      if (r.ok) putFace(r.data);
+      return r;
+    },
+    async register(file) {
+      const r = await run(() => api.me.registerFace(file));
+      if (r.ok) putFace(r.data);
+      return r;
+    },
+    async toggle(on) {
+      const r = await run(() => api.me.useFace(on));
+      if (r.ok) putFace(r.data);
+      return r;
+    },
+    async remove() {
+      const r = await run(() => api.me.removeFace());
+      if (r.ok) putFace({ registered: false });
+      return r;
+    },
+  };
 
   /* ───── 새 일기 초안 ───── */
   const setPage = useCallback((id, p) => setD((d) => ({ ...d, photos: d.photos.map((x) => (x.id === id ? { ...x, ...(typeof p === 'function' ? p(x) : p) } : x)) })), [setD]);
@@ -504,6 +547,6 @@ export function AppProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [polling, draft.diaryId]);
 
-  const value = { db: { avatar: local.avatar }, auth, diary, social, face, draft: draftApi, GUS };
+  const value = { db: { avatar: me?.avatar || null }, auth, diary, social, face, draft: draftApi, GUS };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

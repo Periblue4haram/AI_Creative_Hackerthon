@@ -22,7 +22,7 @@ function loadGsi() {
   return loading;
 }
 
-/** 구글 계정 선택 창을 띄워 ID 토큰을 받는다. 취소·차단·실패하면 null. */
+/** 구글 계정 선택 창을 띄워 ID 토큰을 받는다. 닫으면 'cancel', 차단·실패하면 null. */
 export async function getGoogleIdToken() {
   try {
     await loadGsi();
@@ -44,10 +44,10 @@ export async function getGoogleIdToken() {
       use_fedcm_for_prompt: true,
     });
     window.google.accounts.id.prompt((n) => {
-      if (n.isNotDisplayed?.() || n.isSkippedMoment?.() || n.isDismissedMoment?.()) {
-        // 자격 증명을 받은 뒤 닫히는 경우(dismissed/credential_returned)는 callback 이 먼저 처리한다
-        setTimeout(() => finish(null), 300);
-      }
+      // 사용자가 창을 닫은 경우는 'cancel' (오류 카드를 띄우지 않는다). 자격 증명을 받은 뒤 닫히는 경우는 callback 이 먼저 처리한다.
+      if (n.isSkippedMoment?.() || n.isDismissedMoment?.()) setTimeout(() => finish('cancel'), 300);
+      // 브라우저가 창을 막았거나 구글 설정 문제로 아예 못 띄운 경우
+      else if (n.isNotDisplayed?.()) finish(null);
     });
   });
 }

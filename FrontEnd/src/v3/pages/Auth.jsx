@@ -45,9 +45,10 @@ export function Start() {
   const s = usePreview();
   const [card, setCard] = useState(s === 'google' ? 'INVALID_GOOGLE_TOKEN' : null);
   const google = async () => {
+    setCard(null); // 다시 시도를 누르면 오류 카드는 먼저 닫는다
     const r = await auth.google();
     if (r.ok) nav('/');
-    else setCard(r.code);
+    else if (r.code !== 'CANCELLED') setCard(r.code);
   };
   const body = (
     <>
@@ -101,11 +102,10 @@ export function Signup() {
     setErr(er);
     if (Object.keys(er).length) return;
     setBusy(true);
-    const r = await auth.signup(f.email.trim(), f.pw, f.nick.trim());
+    const r = await auth.signup(f.email.trim(), f.pw, f.nick.trim(), !!f.agree);
     setBusy(false);
     if (r.ok) return nav('/verify');
     if (r.code === 'EMAIL_TAKEN') return setErr({ email: '이미 가입한 이메일이에요. 로그인해 주세요.' });
-    if (r.code === 'NICKNAME_TAKEN') return setErr({ nick: '이미 쓰고 있는 닉네임이에요. 다른 닉네임을 적어 주세요.' });
     if (r.code === 'VALIDATION_FAILED') return setErr({ email: '입력한 내용을 다시 확인해 주세요.' });
     return setCard(r.code); // EMAIL_SEND_FAILED · TOO_MANY_REQUESTS · 네트워크 오류 등
   };
@@ -123,7 +123,7 @@ export function Signup() {
         <Field label="비밀번호" error={err.pw} hint="8자 이상">
           {(id, bad) => <Input id={id} type="password" placeholder="••••••••••" autoComplete="new-password" invalid={bad} value={f.pw} onChange={set('pw')} />}
         </Field>
-        <Field label="닉네임" error={err.nick} hint="2~30자 · 다른 사람이 쓰는 닉네임은 쓸 수 없어요">
+        <Field label="닉네임" error={err.nick} hint="2~30자 · 다른 사람과 같아도 괜찮아요">
           {(id, bad) => <Input id={id} placeholder="서울산책러" maxLength={30} invalid={bad} value={f.nick} onChange={set('nick')} />}
         </Field>
         <div className="v3-check">
@@ -135,7 +135,7 @@ export function Signup() {
           {err.agree && <p className="v3-error" role="alert">{err.agree}</p>}
         </div>
         <div className="v3-or"><span>또는</span></div>
-        <GoogleBtn onClick={async () => { const r = await auth.google(); if (r.ok) nav('/'); else setCard(r.code); }} />
+        <GoogleBtn onClick={async () => { setCard(null); const r = await auth.google(); if (r.ok) nav('/'); else if (r.code !== 'CANCELLED') setCard(r.code); }} />
         <p className="v3-center t-caption v3-muted">가입하면 메일로 6자리 인증 코드를 보내요</p>
         <Button block type="submit" disabled={busy} onClick={submit}>{busy ? '보내는 중…' : '가입하기'}</Button>
       </form>
@@ -282,7 +282,7 @@ export function Login() {
         </Field>
         <Button block type="submit" disabled={busy} onClick={submit}>{busy ? '로그인 중…' : '로그인'}</Button>
         <div className="v3-or"><span>또는</span></div>
-        <GoogleBtn onClick={async () => { const r = await auth.google(); if (r.ok) nav('/'); else setCard(r.code); }} />
+        <GoogleBtn onClick={async () => { setCard(null); const r = await auth.google(); if (r.ok) nav('/'); else if (r.code !== 'CANCELLED') setCard(r.code); }} />
         <p className="v3-center t-body">계정이 없나요? <Link className="v3-link" to="/signup">회원가입</Link></p>
       </form>
     </AuthPage>

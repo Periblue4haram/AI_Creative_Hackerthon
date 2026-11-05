@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import assets from '../../assetMap.js';
 import { Button, StatusBar } from '../../components/common.jsx';
 import useDesktop from '../../hooks/useDesktop.js';
-import { MAX_BYTES, OK_TYPES, dotDay } from '../data.js';
+import { MAX_BYTES, OK_TYPES } from '../data.js';
 import { useApp } from '../store.jsx';
 import { Confirm, ErrorCard, Field, Input, Page, Toggle, useFilePicker, usePreview } from '../ui.jsx';
 
@@ -18,6 +18,7 @@ export function Avatar({ size = 96, camera, onClick }) {
   );
 }
 
+const LOGIN_KO = { EMAIL: '이메일', GOOGLE: 'Google', EMAIL_AND_GOOGLE: '이메일 · Google' };
 const Row = ({ k, v }) => (
   <div className="v3-kv"><dt className="t-caption v3-muted">{k}</dt><dd className="t-body">{v}</dd></div>
 );
@@ -26,16 +27,16 @@ const Row = ({ k, v }) => (
 export default function Me({ initial = 'profile' }) {
   const nav = useNavigate();
   const desk = useDesktop();
-  const { auth, diary } = useApp();
+  const { auth } = useApp();
   const s = usePreview();
   const [tab, setTab] = useState(initial);
   const [out, setOut] = useState(s === 'logout');
   const me = auth.me;
   useEffect(() => {
-    diary.load(); // 쓴 일기 수와 처음 쓴 날을 서버 기록으로 채운다
+    auth.refreshMe(); // 쓴 일기 수와 처음 쓴 날은 서버 값을 쓴다
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const first = diary.entries.length ? diary.entries[diary.entries.length - 1].day : me?.joined;
+  const first = me?.firstDiary || null;
 
   const profile = (
     <section className="v3-colophon">
@@ -45,7 +46,7 @@ export default function Me({ initial = 'profile' }) {
         <Row k="지은이" v={me?.nick} />
         <Row k="이메일" v={me?.email} />
         <Row k="처음 쓴 날" v={first ? `${first.slice(0, 4)}년 ${Number(first.slice(5, 7))}월 ${Number(first.slice(8, 10))}일` : '-'} />
-        <Row k="쓴 일기" v={`${diary.total}편`} />
+        <Row k="쓴 일기" v={`${me?.diaryCount ?? 0}편`} />
         <Row k="펴낸 곳" v="SEOULMATE" />
       </dl>
       <Button block variant="ghost" onClick={() => nav('/me/edit')}>프로필 수정</Button>
@@ -89,7 +90,7 @@ export default function Me({ initial = 'profile' }) {
   );
 }
 
-/* ─────────── M2-1 사진 자르기 (원형 영역으로 확대·이동 후 256px 이미지로 저장) ─────────── */
+/* ─────────── M2-1 사진 자르기 (원형 영역으로 확대·이동 후 512px 이미지로 보냄) ─────────── */
 const VIEW = 260;
 function Cropper({ src, onCancel, onDone }) {
   const [z, setZ] = useState(1);
@@ -112,18 +113,15 @@ function Cropper({ src, onCancel, onDone }) {
   };
   const done = () => {
     const c = document.createElement('canvas');
-    c.width = 256;
-    c.height = 256;
-    const k = 256 / VIEW;
+    c.width = 512;
+    c.height = 512;
+    const k = 512 / VIEW;
     const ctx = c.getContext('2d');
     ctx.drawImage(nat.im, (VIEW / 2 + off.x - (nat.w * sc) / 2) * k, (VIEW / 2 + off.y - (nat.h * sc) / 2) * k, nat.w * sc * k, nat.h * sc * k);
-    let url;
-    try {
-      url = c.toDataURL('image/jpeg', 0.88);
-    } catch {
-      url = src; // 교차 출처 이미지 등으로 캔버스를 읽을 수 없으면 원본을 그대로 쓴다
-    }
-    onDone(url);
+    c.toBlob((blob) => {
+      if (!blob) return onDone(null);
+      onDone(new File([blob], 'profile.jpg', { type: 'image/jpeg' }));
+    }, 'image/jpeg', 0.88);
   };
   return (
     <div className="v3-crop" role="dialog" aria-modal="true" aria-label="사진 자르기">
@@ -166,7 +164,9 @@ export function MeEdit() {
     if (f.size > MAX_BYTES) return setCard('FILE_TOO_LARGE');
     setCrop(URL.createObjectURL(f));
   }, false);
-  const shown = av === undefined ? db.avatar : av;
+  const [avUrl, setAvUrl] = useState(null); // 새로 고른 사진 미리보기
+  useEffect(() => () => avUrl && URL.revokeObjectURL(avUrl), [avUrl]);
+  const shown = av === undefined ? db.avatar : av === null ? null : avUrl;
   const save = async () => {
     const n = nick.trim();
     if (n.length < 2 || n.length > 30) return setBad('닉네임은 2~30자로 적어 주세요.');
@@ -175,13 +175,12 @@ export function MeEdit() {
     const r = await auth.updateProfile(n, av);
     setSaving(false);
     if (r.ok) return nav('/me', { replace: true });
-    if (r.code === 'NICKNAME_TAKEN') return setBad('이미 쓰고 있는 닉네임이에요. 다른 닉네임을 적어 주세요.');
     if (r.code === 'VALIDATION_FAILED') return setBad('닉네임은 2~30자로 적어 주세요.');
     setCard(r.code);
   };
   return (
     <Page title="프로필 수정" right={<button type="button" className="v3-done" onClick={save} disabled={saving}>저장</button>} onBack={() => nav('/me')} tab={null} navActive="me" dtitle="프로필 수정" foot={<Button block className="v3-desk-only" onClick={save} disabled={saving}>저장</Button>}
-      overlay={<>{card && <ErrorCard code={card} onClose={() => setCard(null)} onAction={[() => { setCard(null); pick(); }]} />}{crop && <Cropper src={crop} onCancel={() => setCrop(null)} onDone={(u) => { setAv(u); setCrop(null); }} />}</>}>
+      overlay={<>{card && <ErrorCard code={card} onClose={() => setCard(null)} onAction={[() => { setCard(null); pick(); }]} />}{crop && <Cropper src={crop} onCancel={() => setCrop(null)} onDone={(file) => { setCrop(null); if (!file) return setCard('INTERNAL_ERROR'); setAv(file); setAvUrl(URL.createObjectURL(file)); }} />}</>}>
       {input}
       <div className="v3-avatar-edit">
         <span className="v3-avatar" style={{ width: 112, height: 112 }}>{shown ? <img src={shown} alt="" /> : <img className="v3-avatar__def" src={assets.iconUser} alt="" />}</span>
@@ -191,7 +190,7 @@ export function MeEdit() {
         </div>
         <p className="t-caption v3-muted">JPEG, PNG, WebP · 10MB 이하</p>
       </div>
-      <Field label="닉네임" error={bad} hint="2~30자 · 다른 사람이 쓰는 닉네임은 쓸 수 없어요">
+      <Field label="닉네임" error={bad} hint="2~30자 · 다른 사람과 같아도 괜찮아요">
         {(id, b) => <Input id={id} maxLength={30} invalid={b} value={nick} onChange={(e) => { setBad(null); setNick(e.target.value); }} />}
       </Field>
       <Field label="이메일" hint="이메일은 바꿀 수 없어요">{(id) => <Input id={id} value={auth.me?.email || ''} readOnly disabled />}</Field>
@@ -210,6 +209,7 @@ export function MeInfo() {
       <dl className="v3-kvs v3-kvs--card">
         <Row k="닉네임" v={me?.nick} />
         <Row k="이메일" v={me?.email} />
+        <Row k="로그인 방식" v={LOGIN_KO[me?.loginMethod] || '-'} />
         <Row k="가입일" v={me?.joined ? `${me.joined.slice(0, 4)}년 ${Number(me.joined.slice(5, 7))}월 ${Number(me.joined.slice(8, 10))}일` : '-'} />
       </dl>
       <h3 className="t-body-strong">내 사진과 위치</h3>
@@ -225,22 +225,41 @@ export function MeFace() {
   const { face } = useApp();
   const s = usePreview();
   const [del, setDel] = useState(s === 'confirm');
-  const [pick, input] = useFilePicker(() => face.set({ registered: true, date: dotDay(new Date().toISOString().slice(0, 10)), on: true }), false);
-  const reg = s === 'empty' ? false : face.registered;
+  const [card, setCard] = useState(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    face.load().then((r) => !r.ok && setCard(r.code));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const act = async (fn) => {
+    if (busy) return;
+    setBusy(true);
+    const r = await fn();
+    setBusy(false);
+    if (!r.ok) setCard(r.code);
+    return r;
+  };
+  const [pick, input] = useFilePicker((fs) => {
+    const f = fs[0];
+    if (!OK_TYPES.includes(f.type)) return setCard('UNSUPPORTED_IMAGE_TYPE');
+    if (f.size > MAX_BYTES) return setCard('FILE_TOO_LARGE');
+    act(() => face.register(f));
+  }, false);
+  const reg = face.registered;
   return (
     <Page title="얼굴 데이터 관리" onBack={() => nav('/me')} tab={null} navActive="me" wide
-      overlay={del && <Confirm icon="face" title="얼굴 데이터를 삭제할까요?" body="삭제한 데이터는 되돌릴 수 없어요. 이미 저장한 일기의 그림은 그대로 남아요." ok="삭제" onCancel={() => setDel(false)} onOk={() => { face.set({ registered: false }); setDel(false); }} />}>
+      overlay={<>{card && <ErrorCard code={card} onClose={() => setCard(null)} onAction={[() => setCard(null)]} />}{del && <Confirm icon="face" title="얼굴 데이터를 삭제할까요?" body="삭제한 데이터는 되돌릴 수 없어요. 이미 저장한 일기의 그림은 그대로 남아요." ok="삭제" onCancel={() => setDel(false)} onOk={async () => { setDel(false); await act(() => face.remove()); }} />}</>}>
       {input}
       {reg ? (
         <>
           <div className="v3-card v3-card--row">
-            <span className="v3-faceimg"><img src={assets.faceA} alt="" /></span>
+            <span className="v3-faceimg">{face.url ? <img src={face.url} alt="" /> : <img src={assets.faceA} alt="" />}</span>
             <span><b className="t-body-strong">저장된 얼굴 데이터</b><span className="t-caption v3-muted" style={{ display: 'block' }}>등록일 {face.date}</span></span>
-            <i className="v3-badge v3-badge--ok">사용 중</i>
+            <i className="v3-badge v3-badge--ok">{face.on ? '사용 중' : '꺼짐'}</i>
           </div>
           <div className="v3-card v3-card--row">
             <span><b className="t-body-strong">그림 변환에 사용</b><span className="t-caption v3-muted" style={{ display: 'block' }}>끄면 내 얼굴 데이터를 쓰지 않고 그려요</span></span>
-            <Toggle on={face.on} onChange={(v) => face.set({ on: v })} label="그림 변환에 사용" />
+            <Toggle on={face.on} onChange={(v) => act(() => face.toggle(v))} label="그림 변환에 사용" />
           </div>
         </>
       ) : (
