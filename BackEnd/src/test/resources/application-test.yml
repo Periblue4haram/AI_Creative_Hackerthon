@@ -1,0 +1,34 @@
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/ai_diary_test?createDatabaseIfNotExist=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+  mail:
+    host: localhost
+    port: 2525
+    username: test
+    password: test
+
+app:
+  cors-allowed-origins: http://localhost:5173
+  jwt-secret: test-jwt-secret-test-jwt-secret-test-jwt-secret
+  image-url-signing-secret: test-image-signing-secret
+  email-code-hmac-secret: test-email-code-secret
+  image-storage-root: ./target/test-images
+  google-client-id: test-google-client
+  mail-from: test@example.com
+  search-min-similarity: 0.5
+  gemini:
+    api-key: test
+    chat-model: test-chat
+    embedding-model: test-embedding
+    embedding-dimensions: 3
+  cloudflare:
+    account-id: test
+    api-token: test
+    image-model: test-image
+  naver:
+    client-id: test
+    client-secret: test
+  embedding:
+    delay-ms: 3600000

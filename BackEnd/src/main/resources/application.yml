@@ -1,0 +1,60 @@
+spring:
+  application:
+    name: ai-diary-backend
+  # 프로젝트 루트의 .env를 읽는다. BackEnd/와 루트 어디서 실행해도 동작한다
+  config:
+    import: "optional:file:.env[.properties],optional:file:../.env[.properties]"
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      connection-init-sql: "SET time_zone = '+09:00'"
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+  flyway:
+    enabled: true
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 41MB
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      "[mail.smtp.auth]": true
+      "[mail.smtp.starttls.enable]": true
+      "[mail.smtp.connectiontimeout]": 10000
+      "[mail.smtp.timeout]": 10000
+      "[mail.smtp.writetimeout]": 10000
+
+server:
+  port: ${SERVER_PORT:8080}
+
+app:
+  cors-allowed-origins: ${CORS_ALLOWED_ORIGINS}
+  jwt-secret: ${JWT_SECRET}
+  image-url-signing-secret: ${IMAGE_URL_SIGNING_SECRET}
+  email-code-hmac-secret: ${EMAIL_CODE_HMAC_SECRET}
+  image-storage-root: ${IMAGE_STORAGE_ROOT}
+  google-client-id: ${GOOGLE_CLIENT_ID:}
+  mail-from: ${MAIL_FROM}
+  search-min-similarity: ${SEARCH_MIN_SIMILARITY:0.6}
+  gemini:
+    api-key: ${GEMINI_API_KEY}
+    chat-model: ${GEMINI_CHAT_MODEL}
+    embedding-model: ${GEMINI_EMBEDDING_MODEL}
+    embedding-dimensions: ${GEMINI_EMBEDDING_DIMENSIONS:768}
+  cloudflare:
+    account-id: ${CLOUDFLARE_ACCOUNT_ID:}
+    api-token: ${CLOUDFLARE_API_TOKEN:}
+    image-model: ${CLOUDFLARE_IMAGE_MODEL:@cf/black-forest-labs/flux-2-klein-4b}
+  naver:
+    client-id: ${NAVER_MAPS_CLIENT_ID}
+    client-secret: ${NAVER_MAPS_CLIENT_SECRET}
+  embedding:
+    delay-ms: 60000
