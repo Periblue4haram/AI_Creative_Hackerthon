@@ -78,9 +78,6 @@ public class AuthService {
                 if (user != null && user.isVerified()) {
                     throw new ApiException(ErrorCode.EMAIL_TAKEN);
                 }
-                if ((user == null || !nickname.equals(user.nickname)) && users.existsByNickname(nickname)) {
-                    throw new ApiException(ErrorCode.NICKNAME_TAKEN);
-                }
                 if (user == null) {
                     user = new User(email, nickname);
                 } else {
@@ -89,6 +86,7 @@ public class AuthService {
                     user.nickname = nickname;
                 }
                 user.passwordHash = hash;
+                user.privacyAgreedAt = Times.now();
                 User saved = users.saveAndFlush(user);
                 storeCode(saved.id, code);
             });
@@ -170,6 +168,8 @@ public class AuthService {
             User user = new User(googleUser.email(), newNickname());
             user.googleSub = googleUser.sub();
             user.emailVerifiedAt = Times.now();
+            // 시작 화면의 "계속하면 개인정보처리방침에 동의" 안내에 따라 구글 첫 로그인을 동의로 본다
+            user.privacyAgreedAt = Times.now();
             return new GoogleLogin(tokens.issue(users.saveAndFlush(user)), true);
         });
     }
@@ -233,20 +233,17 @@ public class AuthService {
         return "%06d".formatted(random.nextInt(1_000_000));
     }
 
+    /** 닉네임은 중복을 허용하므로 겹쳐도 다시 만들지 않는다. */
     private String newNickname() {
-        String nickname;
-        do {
-            nickname = "여행자" + "%06d".formatted(random.nextInt(1_000_000));
-        } while (users.existsByNickname(nickname));
-        return nickname;
+        return "여행자" + "%06d".formatted(random.nextInt(1_000_000));
     }
 
     private static String normalize(String email) {
         return email.strip().toLowerCase();
     }
 
+    /** 이메일만 고유하므로 동시 가입 충돌은 이미 가입된 이메일로 본다. */
     private static ApiException conflictFrom(DataIntegrityViolationException e) {
-        String message = String.valueOf(e.getMostSpecificCause().getMessage());
-        return new ApiException(message.contains("uk_users_nickname") ? ErrorCode.NICKNAME_TAKEN : ErrorCode.EMAIL_TAKEN);
+        return new ApiException(ErrorCode.EMAIL_TAKEN);
     }
 }

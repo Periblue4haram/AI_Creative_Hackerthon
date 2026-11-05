@@ -80,13 +80,23 @@ class LiveSmokeTest {
     @Test
     void cloudflareImageConversionKeepsSize() throws Exception {
         assumeTrue(cloudflareToken != null && !cloudflareToken.isBlank(), "CLOUDFLARE_API_TOKEN이 비어 있습니다");
-        GeneratedImage image = styler.toAnimeStyle(samplePhoto());
+        GeneratedImage image = styler.toAnimeStyle(samplePhoto(), null);
         Path out = Path.of("target", "live-anime.jpg");
         Files.write(out, image.bytes());
         BufferedImage result = ImageIO.read(out.toFile());
         System.out.println("[live] 변환 이미지: " + result.getWidth() + "x" + result.getHeight() + ", " + image.bytes().length + " bytes, " + out);
         assertThat(result.getWidth()).isEqualTo(640);
         assertThat(result.getHeight()).isEqualTo(480);
+    }
+
+    /** 등록한 얼굴 데이터를 두 번째 입력 이미지(input_image_1)로 함께 보낸다. */
+    @Test
+    void cloudflareAcceptsFaceReference() throws Exception {
+        assumeTrue(cloudflareToken != null && !cloudflareToken.isBlank(), "CLOUDFLARE_API_TOKEN이 비어 있습니다");
+        GeneratedImage image = styler.toAnimeStyle(samplePhoto(), samplePhoto());
+        BufferedImage result = ImageIO.read(new java.io.ByteArrayInputStream(image.bytes()));
+        System.out.println("[live] 얼굴 참고 변환: " + result.getWidth() + "x" + result.getHeight());
+        assertThat(result.getWidth()).isEqualTo(640);
     }
 
     /** 모델 출력 한도(1920px)보다 큰 사진도 원본 크기로 되돌아와야 한다. */
@@ -97,7 +107,7 @@ class LiveSmokeTest {
         ByteArrayOutputStream large = new ByteArrayOutputStream();
         ImageIO.write(com.aidiary.image.ImageCodec.resize(source, 2048, 1536), "jpeg", large);
 
-        GeneratedImage image = styler.toAnimeStyle(large.toByteArray());
+        GeneratedImage image = styler.toAnimeStyle(large.toByteArray(), null);
         BufferedImage result = ImageIO.read(new java.io.ByteArrayInputStream(image.bytes()));
         System.out.println("[live] 큰 사진 변환: " + result.getWidth() + "x" + result.getHeight());
         assertThat(result.getWidth()).isEqualTo(2048);

@@ -37,7 +37,8 @@ public final class CommunityDtos {
             String content,
             ReactionType myReaction) {}
 
-    public record Author(String nickname) {}
+    /** profileImageUrl은 프로필 사진이 없으면 null이다. */
+    public record Author(String nickname, String profileImageUrl) {}
 
     public record PublicDiary(
             Long diaryId, Author author, LocalDate logicalDate, OffsetDateTime publishedAt, List<PublicPage> pages) {}

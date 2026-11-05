@@ -10,6 +10,8 @@ import com.aidiary.image.ImageStorage;
 import com.aidiary.image.PageImage;
 import com.aidiary.image.PageImage.Kind;
 import com.aidiary.image.PageImageRepository;
+import com.aidiary.user.User;
+import com.aidiary.user.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -27,8 +29,11 @@ public class ConversionService {
     private static final int MAX_TRIES = 2;
     private static final String FAILURE_MESSAGE = "이미지 변환에 실패했습니다.";
 
-    private record Job(Long diaryId, Long originalImageId, String originalPath) {}
+    /** facePath는 일기 주인이 얼굴 데이터를 등록하고 사용을 켜 둔 경우에만 값이 있다. */
+    private record Job(Long diaryId, Long originalImageId, String originalPath, String facePath) {}
 
+    private final DiaryRepository diaries;
+    private final UserRepository users;
     private final DiaryPageRepository pages;
     private final PageImageRepository images;
     private final ImageStorage storage;
@@ -37,12 +42,16 @@ public class ConversionService {
     private final TransactionTemplate tx;
 
     public ConversionService(
+            DiaryRepository diaries,
+            UserRepository users,
             DiaryPageRepository pages,
             PageImageRepository images,
             ImageStorage storage,
             ImageStyler styler,
             TaskExecutor conversionExecutor,
             PlatformTransactionManager transactionManager) {
+        this.diaries = diaries;
+        this.users = users;
         this.pages = pages;
         this.images = images;
         this.storage = storage;
@@ -76,12 +85,13 @@ public class ConversionService {
             return;
         }
         byte[] photo = storage.read(job.originalPath());
+        byte[] face = readFace(job.facePath());
         GeneratedImage generated = null;
         int tries = 0;
         while (generated == null && tries < MAX_TRIES) {
             tries++;
             try {
-                generated = styler.toAnimeStyle(photo);
+                generated = styler.toAnimeStyle(photo, face);
             } catch (AiUnavailableException e) {
                 log.warn("이미지 변환 실패: page={}, try={}, {}", pageId, tries, e.getMessage());
             }
@@ -105,8 +115,26 @@ public class ConversionService {
             }
             page.imageStatus = ImageStatus.PROCESSING;
             page.imageError = null;
-            return new Job(page.diaryId, original.id, original.storagePath);
+            String facePath = diaries.findById(page.diaryId)
+                    .flatMap(d -> users.findById(d.userId))
+                    .filter(User::usesFaceData)
+                    .map(u -> u.faceImagePath)
+                    .orElse(null);
+            return new Job(page.diaryId, original.id, original.storagePath, facePath);
         });
+    }
+
+    /** 얼굴 데이터를 읽지 못해도 변환은 얼굴 없이 계속한다. */
+    private byte[] readFace(String facePath) {
+        if (facePath == null) {
+            return null;
+        }
+        try {
+            return storage.read(facePath);
+        } catch (RuntimeException e) {
+            log.warn("얼굴 데이터를 읽지 못했습니다: {}", e.getMessage());
+            return null;
+        }
     }
 
     private void save(Long pageId, Job job, GeneratedImage generated, int tries) {

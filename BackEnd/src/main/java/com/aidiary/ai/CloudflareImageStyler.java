@@ -43,6 +43,9 @@ public class CloudflareImageStyler implements ImageStyler {
             Keep the same composition, number of people, poses, objects and place.
             Use soft clean line art and warm colors. Do not add any text, logo or watermark.""";
 
+    private static final String FACE_SENTENCE =
+            " Draw the main person in image 0 so that they resemble the person in image 1. Use image 1 only for that face.";
+
     record Size(int width, int height) {}
 
     private final RestClient client;
@@ -64,7 +67,7 @@ public class CloudflareImageStyler implements ImageStyler {
     }
 
     @Override
-    public GeneratedImage toAnimeStyle(byte[] jpegPhoto) {
+    public GeneratedImage toAnimeStyle(byte[] jpegPhoto, byte[] faceReference) {
         if (token == null || token.isBlank()) {
             throw new AiUnavailableException("CLOUDFLARE_API_TOKEN이 설정되지 않았습니다");
         }
@@ -74,8 +77,13 @@ public class CloudflareImageStyler implements ImageStyler {
         }
         Size request = requestSize(original.getWidth(), original.getHeight());
         byte[] input = ImageCodec.encodeJpeg(ImageCodec.fitWithin(original, MAX_INPUT_EDGE));
+        byte[] face = null;
+        if (faceReference != null) {
+            BufferedImage decoded = ImageCodec.decode(faceReference);
+            face = decoded == null ? null : ImageCodec.encodeJpeg(ImageCodec.fitWithin(decoded, MAX_INPUT_EDGE));
+        }
 
-        byte[] generated = call(input, request);
+        byte[] generated = call(input, face, request);
         BufferedImage result = ImageCodec.decode(generated);
         if (result == null) {
             throw new AiUnavailableException("Cloudflare 응답 이미지를 읽지 못했습니다");
@@ -102,20 +110,13 @@ public class CloudflareImageStyler implements ImageStyler {
         return Math.max(MIN_OUTPUT_EDGE, Math.min(MAX_OUTPUT_EDGE, rounded));
     }
 
-    private byte[] call(byte[] input, Size size) {
-        HttpHeaders imageHeaders = new HttpHeaders();
-        imageHeaders.setContentType(MediaType.IMAGE_JPEG);
-        imageHeaders.setContentDispositionFormData("input_image_0", "photo.jpg");
-        ByteArrayResource image = new ByteArrayResource(input) {
-            @Override
-            public String getFilename() {
-                return "photo.jpg";
-            }
-        };
-
+    private byte[] call(byte[] input, byte[] face, Size size) {
         MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
-        form.add("prompt", PROMPT);
-        form.add("input_image_0", new HttpEntity<>(image, imageHeaders));
+        form.add("prompt", face == null ? PROMPT : PROMPT + FACE_SENTENCE);
+        form.add("input_image_0", imagePart("input_image_0", input));
+        if (face != null) {
+            form.add("input_image_1", imagePart("input_image_1", face));
+        }
         form.add("width", String.valueOf(size.width()));
         form.add("height", String.valueOf(size.height()));
 
@@ -134,6 +135,19 @@ public class CloudflareImageStyler implements ImageStyler {
         } catch (RestClientException e) {
             throw new AiUnavailableException("Cloudflare 호출 실패", e);
         }
+    }
+
+    private static HttpEntity<ByteArrayResource> imagePart(String name, byte[] bytes) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.IMAGE_JPEG);
+        headers.setContentDispositionFormData(name, name + ".jpg");
+        ByteArrayResource resource = new ByteArrayResource(bytes) {
+            @Override
+            public String getFilename() {
+                return name + ".jpg";
+            }
+        };
+        return new HttpEntity<>(resource, headers);
     }
 
     /** 응답은 {"result":{"image":"base64"}} 형태지만, 이미지 바이트를 바로 주는 경우도 처리한다. */

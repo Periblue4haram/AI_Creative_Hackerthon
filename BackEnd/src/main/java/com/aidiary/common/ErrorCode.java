@@ -14,7 +14,6 @@ public enum ErrorCode {
     CANNOT_REPORT_OWN_PAGE(HttpStatus.FORBIDDEN, "자신의 페이지는 신고할 수 없습니다."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "대상을 찾을 수 없습니다."),
     EMAIL_TAKEN(HttpStatus.CONFLICT, "이미 가입된 이메일입니다."),
-    NICKNAME_TAKEN(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다."),
     PAGE_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "일기 한 편에는 사진을 4장까지 넣을 수 있습니다."),
     LAST_PAGE_CANNOT_BE_DELETED(HttpStatus.CONFLICT, "마지막 페이지는 삭제할 수 없습니다."),
     INVALID_STATE(HttpStatus.CONFLICT, "현재 상태에서는 할 수 없는 요청입니다."),
@@ -31,6 +30,7 @@ public enum ErrorCode {
     NO_USER_MESSAGE(HttpStatus.UNPROCESSABLE_ENTITY, "질문에 답변한 뒤 일기를 만들 수 있습니다."),
     TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "잠시 후 다시 시도해 주세요."),
     AI_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI 응답을 받지 못했습니다. 다시 시도해 주세요."),
+    SEARCH_AI_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "지금은 검색할 수 없어요. 잠시 뒤 다시 찾아보세요."),
     EMAIL_SEND_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "인증 메일을 보내지 못했습니다. 다시 시도해 주세요."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");
 
